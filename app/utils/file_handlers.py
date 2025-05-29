@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 import io
 import fitz  # PyMuPDF
-from typing import List, Union
+from typing import List, Union, Dict, Any  # Add Dict and Any here
 import logging
 import asyncio
 from pathlib import Path

@@ -4,7 +4,7 @@ import pytesseract
 import asyncio
 import json
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any  # Make sure all types are imported
 from datetime import datetime
 from enum import Enum
 import redis.asyncio as redis
@@ -50,13 +50,26 @@ class DocumentProcessor:
     async def initialize(self):
         """Initialize processor components"""
         try:
-            self.redis_client = redis.Redis(
-                host=settings.REDIS_HOST,
-                port=settings.REDIS_PORT,
-                db=settings.REDIS_DB,
-                password=settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None,
-                decode_responses=True
-            )
+            if settings.REDIS_URL:
+                # Railway provides REDIS_URL
+                self.redis_client = redis.from_url(
+                    settings.REDIS_URL,
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+            else:
+                # Fallback to individual parameters
+                self.redis_client = redis.Redis(
+                    host=settings.REDIS_HOST,
+                    port=settings.REDIS_PORT,
+                    db=settings.REDIS_DB,
+                    password=settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None,
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5
+                )
+            
             await self.redis_client.ping()
             logger.info("Redis connection established")
         except Exception as e:
