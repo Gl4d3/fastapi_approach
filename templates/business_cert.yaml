@@ -1,0 +1,63 @@
+document_type: "business_cert"
+display_name: "Business Registration Certificate"
+description: "Certificate of Business Registration"
+version: "1.0.0"
+fields:
+  - name: "business_name"
+    display_name: "Business Name"
+    region:
+      x1: 0.25
+      y1: 0.30
+      x2: 0.95
+      y2: 0.40
+    ocr_config: "--psm 6"
+    preprocessing: "enhance"
+    required: true
+    data_type: "string"
+  - name: "registration_number"
+    display_name: "Registration Number"
+    region:
+      x1: 0.65
+      y1: 0.15
+      x2: 0.95
+      y2: 0.25
+    ocr_config: "--psm 6 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ/"
+    validation_pattern: "BN/\\d+"
+    preprocessing: "enhance"
+    required: true
+    data_type: "string"
+  - name: "business_type"
+    display_name: "Business Type"
+    region:
+      x1: 0.25
+      y1: 0.50
+      x2: 0.95
+      y2: 0.60
+    ocr_config: "--psm 6"
+    preprocessing: "enhance"
+    required: false
+    data_type: "string"
+  - name: "registration_date"
+    display_name: "Registration Date"
+    region:
+      x1: 0.25
+      y1: 0.70
+      x2: 0.65
+      y2: 0.80
+    ocr_config: "--psm 6 -c tessedit_char_whitelist=0123456789/"
+    validation_pattern: "\\d{2}/\\d{2}/\\d{4}"
+    preprocessing: "enhance"
+    required: true
+    data_type: "date"
+classification_rules:
+  text_patterns:
+    - "Business Registration"
+    - "Certificate of Registration"
+    - "Registrar of Companies"
+    - "BN/\\d+"
+  layout_features:
+    has_official_seal: true
+validation_rules: {}
+created_by: "system"
+created_at: "2025-05-29T09:06:08Z"
+updated_at: "2025-05-29T09:06:08Z"

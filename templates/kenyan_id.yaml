@@ -1,0 +1,67 @@
+document_type: "kenyan_id"
+display_name: "Kenyan National ID"
+description: "Republic of Kenya National Identity Card"
+version: "1.0.0"
+fields:
+  - name: "full_name"
+    display_name: "Full Name"
+    region:
+      x1: 0.25
+      y1: 0.45
+      x2: 0.95
+      y2: 0.55
+    ocr_config: "--psm 6"
+    validation_pattern: "[A-Z][A-Z\\s]+"
+    preprocessing: "enhance"
+    post_processing: "clean_name"
+    required: true
+    data_type: "string"
+  - name: "id_number"
+    display_name: "ID Number"
+    region:
+      x1: 0.65
+      y1: 0.15
+      x2: 0.95
+      y2: 0.25
+    ocr_config: "--psm 6 -c tessedit_char_whitelist=0123456789"
+    validation_pattern: "\\d{8}"
+    preprocessing: "enhance"
+    required: true
+    data_type: "string"
+  - name: "date_of_birth"
+    display_name: "Date of Birth"
+    region:
+      x1: 0.25
+      y1: 0.65
+      x2: 0.65
+      y2: 0.75
+    ocr_config: "--psm 6 -c tessedit_char_whitelist=0123456789."
+    validation_pattern: "\\d{2}\\.\\d{2}\\.\\d{4}"
+    preprocessing: "enhance"
+    required: true
+    data_type: "date"
+  - name: "district_of_birth"
+    display_name: "District of Birth"
+    region:
+      x1: 0.25
+      y1: 0.75
+      x2: 0.95
+      y2: 0.85
+    ocr_config: "--psm 6"
+    preprocessing: "enhance"
+    required: false
+    data_type: "string"
+classification_rules:
+  text_patterns:
+    - "JAMHURI YA KENYA"
+    - "REPUBLIC OF KENYA"
+    - "\\d{8}"
+    - "FULL NAME"
+    - "DATE OF BIRTH"
+  layout_features:
+    has_photo: true
+    has_coat_of_arms: true
+validation_rules: {}
+created_by: "system"
+created_at: "2025-05-29T09:06:08Z"
+updated_at: "2025-05-29T09:06:08Z"
