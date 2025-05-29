@@ -1,47 +1,49 @@
-# Railway-optimized Dockerfile
-FROM python:3.9-slim
+# Use Python slim image - much smaller than regular python image
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
-    PORT=8000
+    PORT=8000 \
+    PYTHONPATH="/app"
 
-# Install system dependencies optimized for Railway
-RUN apt-get update && apt-get install -y \
+# Install only essential system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     libtesseract-dev \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
     curl \
-    build-essential \
     && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    && apt-get clean \
+    && apt-get autoremove -y
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Create a minimal requirements file for Railway
+COPY requirements.railway.txt requirements.txt
 
-# Install Python dependencies with Railway optimizations
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with minimal footprint
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip cache purge
 
-# Copy application code
-COPY . .
+# Copy only necessary application files
+COPY app/ app/
+COPY templates/ templates/
+COPY static/ static/
 
-# Create directories with proper permissions
-RUN mkdir -p /app/uploads /app/logs /app/templates /app/static && \
-    chmod 755 /app/uploads /app/logs /app/templates /app/static
+# Create minimal directories
+RUN mkdir -p logs uploads && \
+    chmod 755 logs uploads
 
-# Expose port (Railway will set this dynamically)
+# Expose port
 EXPOSE $PORT
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=10s --retries=3 \
+# Lightweight health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
     CMD curl -f http://localhost:$PORT/health || exit 1
 
-# Start command optimized for Railway
-CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --access-log
+# Start with minimal resources
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "$PORT", "--workers", "1", "--log-level", "warning"]

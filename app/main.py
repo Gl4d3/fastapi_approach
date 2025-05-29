@@ -1,12 +1,15 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
 import asyncio
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from datetime import datetime
 import logging
 from contextlib import asynccontextmanager
+import os
 
 from .core.config import get_settings
 from .core.document_processor import DocumentProcessor
@@ -45,6 +48,35 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Create directories if they don't exist
+os.makedirs("static", exist_ok=True)
+os.makedirs("templates", exist_ok=True)
+
+# Mount static files and templates
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+# Web UI Routes
+@app.get("/", response_class=HTMLResponse)
+async def web_interface(request: Request):
+    """Serve the main web interface"""
+    supported_docs = processor.get_supported_documents() if processor else []
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "title": "Kenyan Document Processor",
+        "supported_documents": supported_docs
+    })
+
+@app.get("/results/{document_id}", response_class=HTMLResponse)
+async def results_page(request: Request, document_id: str):
+    """Serve results page"""
+    status = await processor.get_job_status(document_id) if processor else None
+    return templates.TemplateResponse("results.html", {
+        "request": request,
+        "document_id": document_id,
+        "status": status
+    })
 
 @app.post("/upload", response_model=Dict)
 async def upload_document(
@@ -178,4 +210,4 @@ async def cleanup_document(document_id: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=settings.PORT, reload=True)

@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .upload-zone {
+            border: 2px dashed #cbd5e0;
+            transition: all 0.3s ease;
+        }
+        .upload-zone.dragover {
+            border-color: #4299e1;
+            background-color: #ebf8ff;
+        }
+        .progress-bar {
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50" x-data="documentProcessor()">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-file-alt text-blue-600 mr-2"></i>
+                            Kenyan Document Processor
+                        </h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-500">AI-Powered Document Validation</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Hero Section -->
+        <div class="px-4 py-6 sm:px-0">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-4">
+                    Upload Your Kenyan Document
+                </h2>
+                <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+                    Extract data from KRA PIN certificates, National IDs, Business Registration certificates, and more.
+                    Fast, accurate, and secure processing.
+                </p>
+            </div>
+
+            <!-- Supported Documents -->
+            <div class="mb-8">
+                <h3 class="text-lg font-medium text-gray-900 mb-4 text-center">Supported Documents</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                    {% for doc in supported_documents %}
+                    <div class="bg-white rounded-lg shadow p-4 text-center">
+                        <div class="text-blue-600 text-2xl mb-2">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                        <h4 class="font-medium text-gray-900">{{ doc.name }}</h4>
+                        <p class="text-sm text-gray-600 mt-1">{{ doc.description }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Upload Section -->
+            <div class="max-w-2xl mx-auto">
+                <div class="bg-white shadow rounded-lg p-6">
+                    <!-- Upload Zone -->
+                    <div class="upload-zone rounded-lg p-8 text-center cursor-pointer"
+                         :class="{ 'dragover': isDragging }"
+                         @click="$refs.fileInput.click()"
+                         @dragover.prevent="isDragging = true"
+                         @dragleave.prevent="isDragging = false"
+                         @drop.prevent="handleFileDrop($event)">
+                        
+                        <div x-show="!selectedFile">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-lg font-medium text-gray-900 mb-2">
+                                Drop your document here or click to browse
+                            </p>
+                            <p class="text-sm text-gray-500">
+                                Supports PDF, JPEG, PNG, TIFF files up to 5MB
+                            </p>
+                        </div>
+
+                        <div x-show="selectedFile" class="text-left">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <i class="fas fa-file text-blue-600 text-xl mr-3"></i>
+                                    <div>
+                                        <p class="font-medium text-gray-900" x-text="selectedFile?.name"></p>
+                                        <p class="text-sm text-gray-500" x-text="formatFileSize(selectedFile?.size)"></p>
+                                    </div>
+                                </div>
+                                <button @click.stop="clearFile()" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <input type="file" 
+                               x-ref="fileInput" 
+                               @change="handleFileSelect($event)"
+                               accept=".pdf,.jpg,.jpeg,.png,.tiff,.tif"
+                               class="hidden">
+                    </div>
+
+                    <!-- Processing Mode Selection -->
+                    <div class="mt-6" x-show="selectedFile">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Processing Mode</label>
+                        <div class="grid grid-cols-2 gap-4">
+                            <label class="relative">
+                                <input type="radio" 
+                                       name="processing_mode" 
+                                       value="sync" 
+                                       x-model="processingMode"
+                                       class="sr-only">
+                                <div class="border-2 rounded-lg p-4 cursor-pointer transition-all"
+                                     :class="processingMode === 'sync' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-bolt text-blue-600 mr-2"></i>
+                                        <span class="font-medium">Quick Process</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mt-1">Get results immediately</p>
+                                </div>
+                            </label>
+                            <label class="relative">
+                                <input type="radio" 
+                                       name="processing_mode" 
+                                       value="async" 
+                                       x-model="processingMode"
+                                       class="sr-only">
+                                <div class="border-2 rounded-lg p-4 cursor-pointer transition-all"
+                                     :class="processingMode === 'async' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-clock text-blue-600 mr-2"></i>
+                                        <span class="font-medium">Background Process</span>
+                                    </div>
+                                    <p class="text-sm text-gray-600 mt-1">Process in background</p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Process Button -->
+                    <div class="mt-6" x-show="selectedFile">
+                        <button @click="processDocument()" 
+                                :disabled="isProcessing"
+                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                            <span x-show="!isProcessing">
+                                <i class="fas fa-play mr-2"></i>
+                                Process Document
+                            </span>
+                            <span x-show="isProcessing">
+                                <i class="fas fa-spinner fa-spin mr-2"></i>
+                                Processing...
+                            </span>
+                        </button>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div x-show="isProcessing" class="mt-4">
+                        <div class="bg-gray-200 rounded-full h-2">
+                            <div class="progress-bar bg-blue-600 h-2 rounded-full" 
+                                 :style="`width: ${progress}%`"></div>
+                        </div>
+                        <p class="text-sm text-gray-600 mt-2 text-center" x-text="statusMessage"></p>
+                    </div>
+                </div>
+
+                <!-- Results Section -->
+                <div x-show="results" class="mt-8 bg-white shadow rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">
+                        <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                        Processing Results
+                    </h3>
+                    
+                    <!-- Document Type -->
+                    <div class="mb-4">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                              :class="results?.is_valid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+                            <span x-text="results?.document_type || 'Unknown'"></span>
+                        </span>
+                        <span class="ml-2 text-sm text-gray-600">
+                            Confidence: <span x-text="Math.round(results?.confidence || 0)"></span>%
+                        </span>
+                    </div>
+
+                    <!-- Extracted Data -->
+                    <div x-show="results?.extracted_data">
+                        <h4 class="font-medium text-gray-900 mb-3">Extracted Information</h4>
+                        <div class="space-y-2">
+                            <template x-for="[key, value] in Object.entries(results?.extracted_data || {})">
+                                <div class="flex justify-between py-2 border-b border-gray-100">
+                                    <span class="font-medium text-gray-700" x-text="formatFieldName(key)"></span>
+                                    <span class="text-gray-900" x-text="value"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Errors -->
+                    <div x-show="results?.errors && results.errors.length > 0" class="mt-4">
+                        <h4 class="font-medium text-red-700 mb-2">Processing Issues</h4>
+                        <ul class="text-sm text-red-600 space-y-1">
+                            <template x-for="error in results?.errors || []">
+                                <li x-text="error"></li>
+                            </template>
+                        </ul>
+                    </div>
+
+                    <!-- Processing Time -->
+                    <div class="mt-4 text-sm text-gray-500">
+                        Processing time: <span x-text="results?.processing_time?.toFixed(2)"></span> seconds
+                    </div>
+                </div>
+
+                <!-- Error Message -->
+                <div x-show="errorMessage" class="mt-8 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-circle text-red-600 mr-2"></i>
+                        <span class="text-red-700" x-text="errorMessage"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-12">
+        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
+            <p class="text-center text-sm text-gray-500">
+                © 2025 Kenyan Document Processor by Gl4d3. Built with FastAPI & AI.
+            </p>
+        </div>
+    </footer>
+
+    <script>
+        function documentProcessor() {
+            return {
+                selectedFile: null,
+                processingMode: 'sync',
+                isProcessing: false,
+                isDragging: false,
+                progress: 0,
+                statusMessage: '',
+                results: null,
+                errorMessage: '',
+
+                handleFileSelect(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        this.selectedFile = file;
+                        this.clearResults();
+                    }
+                },
+
+                handleFileDrop(event) {
+                    this.isDragging = false;
+                    const files = event.dataTransfer.files;
+                    if (files.length > 0) {
+                        this.selectedFile = files[0];
+                        this.clearResults();
+                    }
+                },
+
+                clearFile() {
+                    this.selectedFile = null;
+                    this.clearResults();
+                    this.$refs.fileInput.value = '';
+                },
+
+                clearResults() {
+                    this.results = null;
+                    this.errorMessage = '';
+                    this.progress = 0;
+                },
+
+                formatFileSize(bytes) {
+                    if (!bytes) return '';
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+                    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+                },
+
+                formatFieldName(key) {
+                    return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                },
+
+                async processDocument() {
+                    if (!this.selectedFile) return;
+
+                    this.isProcessing = true;
+                    this.progress = 10;
+                    this.statusMessage = 'Uploading document...';
+                    this.clearResults();
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', this.selectedFile);
+
+                        if (this.processingMode === 'sync') {
+                            this.statusMessage = 'Processing document...';
+                            this.progress = 50;
+
+                            const response = await fetch('/process-sync', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                throw new Error(error.detail || 'Processing failed');
+                            }
+
+                            this.progress = 100;
+                            this.statusMessage = 'Processing complete!';
+                            this.results = await response.json();
+                        } else {
+                            this.statusMessage = 'Starting background processing...';
+                            this.progress = 30;
+
+                            const response = await fetch('/upload', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            if (!response.ok) {
+                                const error = await response.json();
+                                throw new Error(error.detail || 'Upload failed');
+                            }
+
+                            const uploadResult = await response.json();
+                            const documentId = uploadResult.document_id;
+
+                            // Poll for results
+                            await this.pollForResults(documentId);
+                        }
+                    } catch (error) {
+                        this.errorMessage = error.message;
+                    } finally {
+                        this.isProcessing = false;
+                    }
+                },
+
+                async pollForResults(documentId) {
+                    const maxAttempts = 30;
+                    let attempts = 0;
+
+                    while (attempts < maxAttempts) {
+                        try {
+                            this.statusMessage = `Checking processing status... (${attempts + 1}/${maxAttempts})`;
+                            this.progress = 30 + (attempts / maxAttempts) * 60;
+
+                            const response = await fetch(`/status/${documentId}`);
+                            if (!response.ok) break;
+
+                            const status = await response.json();
+
+                            if (status.status === 'completed') {
+                                this.progress = 100;
+                                this.statusMessage = 'Processing complete!';
+                                this.results = {
+                                    is_valid: status.result?.extraction_success || false,
+                                    document_type: status.result?.document_type || 'unknown',
+                                    confidence: status.result?.overall_confidence || 0,
+                                    extracted_data: status.result?.extracted_data || {},
+                                    errors: status.result?.extraction_errors || [],
+                                    processing_time: 0
+                                };
+                                break;
+                            } else if (status.status === 'failed') {
+                                throw new Error(status.result?.error || 'Processing failed');
+                            }
+
+                            attempts++;
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        } catch (error) {
+                            throw new Error('Failed to check processing status');
+                        }
+                    }
+
+                    if (attempts >= maxAttempts) {
+                        throw new Error('Processing timeout - please try again');
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

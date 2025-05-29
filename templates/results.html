@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Processing Results - Kenyan Document Processor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/" class="flex items-center">
+                        <h1 class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-file-alt text-blue-600 mr-2"></i>
+                            Kenyan Document Processor
+                        </h1>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-blue-600 hover:text-blue-800">
+                        <i class="fas fa-arrow-left mr-1"></i>
+                        Back to Upload
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div class="px-4 py-6 sm:px-0">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-4">
+                    Processing Results
+                </h2>
+                <p class="text-lg text-gray-600">
+                    Document ID: <code class="bg-gray-100 px-2 py-1 rounded">{{ document_id }}</code>
+                </p>
+            </div>
+
+            {% if status %}
+                {% if status.status == 'completed' %}
+                    <!-- Success Results -->
+                    <div class="bg-white shadow rounded-lg p-6 mb-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-check-circle text-green-600 text-2xl mr-3"></i>
+                            <h3 class="text-xl font-medium text-gray-900">Processing Complete</h3>
+                        </div>
+                        
+                        {% if status.result %}
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h4 class="font-medium text-gray-900 mb-2">Document Information</h4>
+                                    <dl class="space-y-2">
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">Type</dt>
+                                            <dd class="text-sm text-gray-900">{{ status.result.document_type }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">Confidence</dt>
+                                            <dd class="text-sm text-gray-900">{{ "%.1f"|format(status.result.overall_confidence or 0) }}%</dd>
+                                        </div>
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">Status</dt>
+                                            <dd class="text-sm">
+                                                {% if status.result.extraction_success %}
+                                                    <span class="text-green-600">✓ Success</span>
+                                                {% else %}
+                                                    <span class="text-red-600">✗ Failed</span>
+                                                {% endif %}
+                                            </dd>
+                                        </div>
+                                    </dl>
+                                </div>
+                                
+                                {% if status.result.extracted_data %}
+                                <div>
+                                    <h4 class="font-medium text-gray-900 mb-2">Extracted Data</h4>
+                                    <dl class="space-y-2">
+                                        {% for key, value in status.result.extracted_data.items() %}
+                                        <div>
+                                            <dt class="text-sm font-medium text-gray-500">{{ key.replace('_', ' ').title() }}</dt>
+                                            <dd class="text-sm text-gray-900">{{ value }}</dd>
+                                        </div>
+                                        {% endfor %}
+                                    </dl>
+                                </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                {% elif status.status == 'failed' %}
+                    <!-- Error Results -->
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-exclamation-circle text-red-600 text-2xl mr-3"></i>
+                            <h3 class="text-xl font-medium text-red-800">Processing Failed</h3>
+                        </div>
+                        <p class="text-red-700">{{ status.result.error if status.result else 'Unknown error occurred' }}</p>
+                    </div>
+                    
+                {% else %}
+                    <!-- Processing -->
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                        <div class="flex items-center mb-4">
+                            <i class="fas fa-spinner fa-spin text-blue-600 text-2xl mr-3"></i>
+                            <h3 class="text-xl font-medium text-blue-800">Processing...</h3>
+                        </div>
+                        <p class="text-blue-700">Your document is being processed. Please wait...</p>
+                        <div class="mt-4">
+                            <div class="bg-blue-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: {{ (status.progress or 0)|string }}%"></div>
+                            </div>
+                        </div>
+                        <script>
+                            // Auto-refresh every 2 seconds
+                            setTimeout(() => location.reload(), 2000);
+                        </script>
+                    </div>
+                {% endif %}
+            {% else %}
+                <!-- Not Found -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-question-circle text-yellow-600 text-2xl mr-3"></i>
+                        <h3 class="text-xl font-medium text-yellow-800">Document Not Found</h3>
+                    </div>
+                    <p class="text-yellow-700">The specified document could not be found or may have expired.</p>
+                </div>
+            {% endif %}
+
+            <!-- Actions -->
+            <div class="mt-8 text-center">
+                <a href="/" 
+                   class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    <i class="fas fa-upload mr-2"></i>
+                    Process Another Document
+                </a>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
