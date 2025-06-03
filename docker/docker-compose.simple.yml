@@ -1,16 +1,15 @@
-version: '3.8'
-
 services:
   # Main API service
   api:
     build: 
       context: ..
-      dockerfile: docker/dockerfile.light  # Use lightweight version
+      dockerfile: docker/dockerfile.light
     ports:
       - "8000:8000"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379/0  # Add this for compatibility
       - TESSERACT_PATH=/usr/bin/tesseract
       - LOG_LEVEL=INFO
       - MAX_FILE_SIZE=10485760

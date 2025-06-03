@@ -19,23 +19,40 @@
         .progress-bar {
             transition: width 0.3s ease;
         }
+        .field-card {
+            transition: transform 0.2s ease;
+        }
+        .field-card:hover {
+            transform: translateY(-2px);
+        }
+        .processing-method-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .confidence-bar {
+            background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #10b981 100%);
+        }
     </style>
 </head>
-<body class="bg-gray-50" x-data="documentProcessor()">
+<body class="bg-gray-50" x-data="enhancedDocumentProcessor()">
     <!-- Header -->
-    <header class="bg-white shadow-sm">
+    <header class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <h1 class="text-xl font-bold text-gray-900">
                             <i class="fas fa-file-alt text-blue-600 mr-2"></i>
-                            Kenyan Document Processor
+                            Enhanced Document Processor
                         </h1>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-500">AI-Powered Document Validation</span>
+                    <span class="text-sm text-gray-500">AI-Powered • Vision Analysis • Spatial Extraction</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span class="text-xs text-gray-600">Live</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -47,33 +64,54 @@
         <div class="px-4 py-6 sm:px-0">
             <div class="text-center mb-8">
                 <h2 class="text-3xl font-extrabold text-gray-900 mb-4">
-                    Upload Your Kenyan Document
+                    Enhanced Document Processing
                 </h2>
-                <p class="text-lg text-gray-600 max-w-2xl mx-auto">
-                    Extract data from KRA PIN certificates, National IDs, Business Registration certificates, and more.
-                    Fast, accurate, and secure processing.
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Advanced AI-powered extraction with spatial analysis, multi-language support, and enhanced field detection.
+                    Process Kenyan documents, foreign IDs, business certificates, and more with higher accuracy.
                 </p>
+                <div class="mt-4 flex justify-center space-x-6 text-sm text-gray-500">
+                    <span><i class="fas fa-brain text-blue-500 mr-1"></i>Vision AI</span>
+                    <span><i class="fas fa-globe text-green-500 mr-1"></i>Multi-Language</span>
+                    <span><i class="fas fa-crosshairs text-purple-500 mr-1"></i>Spatial Analysis</span>
+                    <span><i class="fas fa-shield-alt text-red-500 mr-1"></i>Enhanced Security</span>
+                </div>
             </div>
 
-            <!-- Supported Documents -->
+            <!-- Enhanced Supported Documents -->
             <div class="mb-8">
                 <h3 class="text-lg font-medium text-gray-900 mb-4 text-center">Supported Documents</h3>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
                     {% for doc in supported_documents %}
-                    <div class="bg-white rounded-lg shadow p-4 text-center">
+                    <div class="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow">
                         <div class="text-blue-600 text-2xl mb-2">
-                            <i class="fas fa-file-alt"></i>
+                            {% if doc.type == 'kra_pin' %}
+                                <i class="fas fa-receipt"></i>
+                            {% elif doc.type == 'kenyan_id' %}
+                                <i class="fas fa-id-card"></i>
+                            {% elif doc.type == 'foreign_id' %}
+                                <i class="fas fa-passport"></i>
+                            {% elif doc.type == 'business_cert' %}
+                                <i class="fas fa-building"></i>
+                            {% else %}
+                                <i class="fas fa-file-alt"></i>
+                            {% endif %}
                         </div>
                         <h4 class="font-medium text-gray-900">{{ doc.name }}</h4>
                         <p class="text-sm text-gray-600 mt-1">{{ doc.description }}</p>
+                        <div class="mt-2 flex flex-wrap gap-1 justify-center">
+                            {% for field in doc.fields %}
+                            <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">{{ field.replace('_', ' ').title() }}</span>
+                            {% endfor %}
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
             </div>
 
             <!-- Upload Section -->
-            <div class="max-w-2xl mx-auto">
-                <div class="bg-white shadow rounded-lg p-6">
+            <div class="max-w-3xl mx-auto">
+                <div class="bg-white shadow-lg rounded-lg p-6">
                     <!-- Upload Zone -->
                     <div class="upload-zone rounded-lg p-8 text-center cursor-pointer"
                          :class="{ 'dragover': isDragging }"
@@ -88,7 +126,10 @@
                                 Drop your document here or click to browse
                             </p>
                             <p class="text-sm text-gray-500">
-                                Supports PDF, JPEG, PNG, TIFF files up to 5MB
+                                Supports PDF, JPEG, PNG, TIFF files up to 10MB
+                            </p>
+                            <p class="text-xs text-gray-400 mt-2">
+                                Enhanced with spatial analysis and multi-language detection
                             </p>
                         </div>
 
@@ -128,9 +169,9 @@
                                      :class="processingMode === 'sync' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
                                     <div class="flex items-center">
                                         <i class="fas fa-bolt text-blue-600 mr-2"></i>
-                                        <span class="font-medium">Quick Process</span>
+                                        <span class="font-medium">Vision AI Processing</span>
                                     </div>
-                                    <p class="text-sm text-gray-600 mt-1">Get results immediately</p>
+                                    <p class="text-sm text-gray-600 mt-1">Get results immediately with enhanced accuracy</p>
                                 </div>
                             </label>
                             <label class="relative">
@@ -145,7 +186,7 @@
                                         <i class="fas fa-clock text-blue-600 mr-2"></i>
                                         <span class="font-medium">Background Process</span>
                                     </div>
-                                    <p class="text-sm text-gray-600 mt-1">Process in background</p>
+                                    <p class="text-sm text-gray-600 mt-1">Process in background with webhook support</p>
                                 </div>
                             </label>
                         </div>
@@ -155,72 +196,198 @@
                     <div class="mt-6" x-show="selectedFile">
                         <button @click="processDocument()" 
                                 :disabled="isProcessing"
-                                class="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                                class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02]">
                             <span x-show="!isProcessing">
-                                <i class="fas fa-play mr-2"></i>
-                                Process Document
+                                <i class="fas fa-magic mr-2"></i>
+                                Process with Enhanced AI
                             </span>
                             <span x-show="isProcessing">
                                 <i class="fas fa-spinner fa-spin mr-2"></i>
-                                Processing...
+                                <span x-text="statusMessage"></span>
                             </span>
                         </button>
                     </div>
 
                     <!-- Progress Bar -->
                     <div x-show="isProcessing" class="mt-4">
-                        <div class="bg-gray-200 rounded-full h-2">
-                            <div class="progress-bar bg-blue-600 h-2 rounded-full" 
+                        <div class="bg-gray-200 rounded-full h-3 overflow-hidden">
+                            <div class="progress-bar bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500" 
                                  :style="`width: ${progress}%`"></div>
                         </div>
-                        <p class="text-sm text-gray-600 mt-2 text-center" x-text="statusMessage"></p>
+                        <div class="flex justify-between text-sm text-gray-600 mt-2">
+                            <span x-text="statusMessage"></span>
+                            <span x-text="`${progress}%`"></span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Results Section -->
-                <div x-show="results" class="mt-8 bg-white shadow rounded-lg p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">
-                        <i class="fas fa-check-circle text-green-600 mr-2"></i>
-                        Processing Results
-                    </h3>
-                    
-                    <!-- Document Type -->
-                    <div class="mb-4">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
-                              :class="results?.is_valid ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
-                            <span x-text="results?.document_type || 'Unknown'"></span>
-                        </span>
-                        <span class="ml-2 text-sm text-gray-600">
-                            Confidence: <span x-text="Math.round(results?.confidence || 0)"></span>%
-                        </span>
-                    </div>
-
-                    <!-- Extracted Data -->
-                    <div x-show="results?.extracted_data">
-                        <h4 class="font-medium text-gray-900 mb-3">Extracted Information</h4>
-                        <div class="space-y-2">
-                            <template x-for="[key, value] in Object.entries(results?.extracted_data || {})">
-                                <div class="flex justify-between py-2 border-b border-gray-100">
-                                    <span class="font-medium text-gray-700" x-text="formatFieldName(key)"></span>
-                                    <span class="text-gray-900" x-text="value"></span>
-                                </div>
-                            </template>
+                <!-- Enhanced Results Section -->
+                <div x-show="results" class="mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
+                    <!-- Results Header -->
+                    <div class="bg-gradient-to-r from-green-500 to-blue-600 px-6 py-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-medium text-white flex items-center">
+                                <i class="fas fa-check-circle mr-2"></i>
+                                Processing Results
+                            </h3>
+                            <div class="flex items-center space-x-2">
+                                <span class="processing-method-badge bg-white bg-opacity-20 text-white rounded-full"
+                                      x-text="results?.processing_method || 'Standard'"></span>
+                                <span class="processing-method-badge bg-white bg-opacity-20 text-white rounded-full">
+                                    <span x-text="results?.processing_time?.toFixed(2) || '0.00'"></span>s
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Errors -->
-                    <div x-show="results?.errors && results.errors.length > 0" class="mt-4">
-                        <h4 class="font-medium text-red-700 mb-2">Processing Issues</h4>
-                        <ul class="text-sm text-red-600 space-y-1">
-                            <template x-for="error in results?.errors || []">
-                                <li x-text="error"></li>
-                            </template>
-                        </ul>
-                    </div>
+                    <div class="p-6">
+                        <!-- Document Classification -->
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between mb-3">
+                                <h4 class="font-medium text-gray-900">Document Classification</h4>
+                                <div class="flex items-center space-x-2">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
+                                          :class="getDocumentTypeClass(results?.document_type)">
+                                        <i :class="getDocumentTypeIcon(results?.document_type)" class="mr-1"></i>
+                                        <span x-text="formatDocumentType(results?.document_type)"></span>
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- Confidence Meters -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-gray-700">Overall Confidence</span>
+                                        <span class="text-sm font-bold text-gray-900" x-text="`${Math.round(results?.overall_confidence || 0)}%`"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="confidence-bar h-2 rounded-full transition-all duration-1000" 
+                                             :style="`width: ${results?.overall_confidence || 0}%`"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-gray-700">Classification</span>
+                                        <span class="text-sm font-bold text-gray-900" x-text="`${Math.round(results?.classification_confidence || 0)}%`"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" 
+                                             :style="`width: ${results?.classification_confidence || 0}%`"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-gray-50 rounded-lg p-4">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-sm font-medium text-gray-700">Extraction</span>
+                                        <span class="text-sm font-bold text-gray-900" x-text="`${Math.round(results?.extraction_confidence || 0)}%`"></span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-purple-500 h-2 rounded-full transition-all duration-1000" 
+                                             :style="`width: ${results?.extraction_confidence || 0}%`"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                    <!-- Processing Time -->
-                    <div class="mt-4 text-sm text-gray-500">
-                        Processing time: <span x-text="results?.processing_time?.toFixed(2)"></span> seconds
+                        <!-- Extracted Fields -->
+                        <div x-show="results?.extracted_data && Object.keys(results.extracted_data).length > 0" class="mb-6">
+                            <h4 class="font-medium text-gray-900 mb-4 flex items-center">
+                                <i class="fas fa-database text-blue-600 mr-2"></i>
+                                Extracted Information
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <template x-for="[key, value] in Object.entries(results?.extracted_data || {})">
+                                    <div class="field-card bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
+                                        <div class="flex items-start justify-between">
+                                            <div class="flex-1">
+                                                <span class="text-sm font-medium text-gray-700 uppercase tracking-wide" x-text="formatFieldName(key)"></span>
+                                                <p class="mt-1 text-base text-gray-900 font-medium" x-text="value || 'Not detected'"></p>
+                                            </div>
+                                            <i class="fas fa-check-circle text-green-500 mt-1" x-show="value"></i>
+                                            <i class="fas fa-exclamation-circle text-yellow-500 mt-1" x-show="!value"></i>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Processing Details -->
+                        <div class="mb-6">
+                            <h4 class="font-medium text-gray-900 mb-3 flex items-center">
+                                <i class="fas fa-cogs text-purple-600 mr-2"></i>
+                                Processing Details
+                            </h4>
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                    <div class="text-gray-600">OCR Elements</div>
+                                    <div class="font-bold text-gray-900" x-text="results?.debug_info?.ocr_count || 0"></div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                    <div class="text-gray-600">Image Size</div>
+                                    <div class="font-bold text-gray-900" x-text="formatImageSize(results?.debug_info?.image_shape)"></div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                    <div class="text-gray-600">Method</div>
+                                    <div class="font-bold text-gray-900" x-text="results?.processing_method || 'Standard'"></div>
+                                </div>
+                                <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                    <div class="text-gray-600">Status</div>
+                                    <div class="font-bold" :class="results?.extraction_success ? 'text-green-600' : 'text-red-600'">
+                                        <span x-text="results?.extraction_success ? 'Success' : 'Partial'"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- OCR Sample -->
+                        <div x-show="results?.ocr_text_sample" class="mb-6">
+                            <h4 class="font-medium text-gray-900 mb-3 flex items-center">
+                                <i class="fas fa-eye text-indigo-600 mr-2"></i>
+                                OCR Sample Text
+                            </h4>
+                            <div class="bg-gray-100 rounded-lg p-4 text-sm text-gray-700 font-mono">
+                                <p x-text="results?.ocr_text_sample?.substring(0, 200) + (results?.ocr_text_sample?.length > 200 ? '...' : '')"></p>
+                            </div>
+                        </div>
+
+                        <!-- Errors/Issues -->
+                        <div x-show="results?.extraction_errors && results.extraction_errors.length > 0" class="mb-6">
+                            <h4 class="font-medium text-red-700 mb-3 flex items-center">
+                                <i class="fas fa-exclamation-triangle mr-2"></i>
+                                Processing Issues
+                            </h4>
+                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                                <ul class="text-sm text-red-700 space-y-1">
+                                    <template x-for="error in results?.extraction_errors || []">
+                                        <li class="flex items-start">
+                                            <i class="fas fa-circle text-red-400 text-xs mt-1.5 mr-2"></i>
+                                            <span x-text="error"></span>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+                            <button @click="downloadResults()" 
+                                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fas fa-download mr-2"></i>
+                                Download JSON
+                            </button>
+                            <button @click="copyToClipboard()" 
+                                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fas fa-copy mr-2"></i>
+                                Copy Results
+                            </button>
+                            <button @click="processAnother()" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
+                                <i class="fas fa-plus mr-2"></i>
+                                Process Another
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -237,15 +404,22 @@
 
     <!-- Footer -->
     <footer class="bg-white border-t border-gray-200 mt-12">
-        <div class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-            <p class="text-center text-sm text-gray-500">
-                © 2025 Kenyan Document Processor by Gl4d3. Built with FastAPI & AI.
-            </p>
+        <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <p class="text-sm text-gray-500">
+                    © 2025 Enhanced Document Processor by Gl4d3. Built with FastAPI, Vision AI & Advanced OCR.
+                </p>
+                <div class="mt-4 md:mt-0 flex items-center space-x-4 text-sm text-gray-500">
+                    <span>Last Updated: 2025-06-03</span>
+                    <span>•</span>
+                    <span>Version 2.1.0</span>
+                </div>
+            </div>
         </div>
     </footer>
 
     <script>
-        function documentProcessor() {
+        function enhancedDocumentProcessor() {
             return {
                 selectedFile: null,
                 processingMode: 'sync',
@@ -296,6 +470,50 @@
                     return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 },
 
+                formatDocumentType(type) {
+                    const types = {
+                        'kra_pin': 'KRA PIN Certificate',
+                        'kenyan_id': 'Kenyan National ID',
+                        'foreign_id': 'Foreign ID/Passport',
+                        'business_cert': 'Business Certificate',
+                        'passport': 'Passport',
+                        'drivers_license': 'Driver\'s License',
+                        'unknown': 'Unknown Document'
+                    };
+                    return types[type] || type;
+                },
+
+                getDocumentTypeClass(type) {
+                    const classes = {
+                        'kra_pin': 'bg-blue-100 text-blue-800',
+                        'kenyan_id': 'bg-green-100 text-green-800',
+                        'foreign_id': 'bg-purple-100 text-purple-800',
+                        'business_cert': 'bg-orange-100 text-orange-800',
+                        'passport': 'bg-indigo-100 text-indigo-800',
+                        'drivers_license': 'bg-yellow-100 text-yellow-800',
+                        'unknown': 'bg-gray-100 text-gray-800'
+                    };
+                    return classes[type] || 'bg-gray-100 text-gray-800';
+                },
+
+                getDocumentTypeIcon(type) {
+                    const icons = {
+                        'kra_pin': 'fas fa-receipt',
+                        'kenyan_id': 'fas fa-id-card',
+                        'foreign_id': 'fas fa-passport',
+                        'business_cert': 'fas fa-building',
+                        'passport': 'fas fa-passport',
+                        'drivers_license': 'fas fa-id-card-alt',
+                        'unknown': 'fas fa-question-circle'
+                    };
+                    return icons[type] || 'fas fa-file';
+                },
+
+                formatImageSize(shape) {
+                    if (!shape || !Array.isArray(shape)) return 'N/A';
+                    return `${shape[1]}×${shape[0]}`;
+                },
+
                 async processDocument() {
                     if (!this.selectedFile) return;
 
@@ -309,8 +527,13 @@
                         formData.append('file', this.selectedFile);
 
                         if (this.processingMode === 'sync') {
-                            this.statusMessage = 'Processing document...';
-                            this.progress = 50;
+                            this.statusMessage = 'Analyzing with Vision AI...';
+                            this.progress = 30;
+
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            this.statusMessage = 'Extracting text with OCR...';
+                            this.progress = 60;
 
                             const response = await fetch('/process-sync', {
                                 method: 'POST',
@@ -321,6 +544,11 @@
                                 const error = await response.json();
                                 throw new Error(error.detail || 'Processing failed');
                             }
+
+                            this.progress = 90;
+                            this.statusMessage = 'Finalizing results...';
+                            
+                            await new Promise(resolve => setTimeout(resolve, 300));
 
                             this.progress = 100;
                             this.statusMessage = 'Processing complete!';
@@ -342,7 +570,6 @@
                             const uploadResult = await response.json();
                             const documentId = uploadResult.document_id;
 
-                            // Poll for results
                             await this.pollForResults(documentId);
                         }
                     } catch (error) {
@@ -358,7 +585,7 @@
 
                     while (attempts < maxAttempts) {
                         try {
-                            this.statusMessage = `Checking processing status... (${attempts + 1}/${maxAttempts})`;
+                            this.statusMessage = `Processing in background... (${attempts + 1}/${maxAttempts})`;
                             this.progress = 30 + (attempts / maxAttempts) * 60;
 
                             const response = await fetch(`/status/${documentId}`);
@@ -372,10 +599,15 @@
                                 this.results = {
                                     is_valid: status.result?.extraction_success || false,
                                     document_type: status.result?.document_type || 'unknown',
-                                    confidence: status.result?.overall_confidence || 0,
+                                    overall_confidence: status.result?.overall_confidence || 0,
+                                    classification_confidence: status.result?.classification_confidence || 0,
+                                    extraction_confidence: status.result?.extraction_confidence || 0,
                                     extracted_data: status.result?.extracted_data || {},
-                                    errors: status.result?.extraction_errors || [],
-                                    processing_time: 0
+                                    extraction_errors: status.result?.extraction_errors || [],
+                                    processing_time: 0,
+                                    processing_method: status.result?.processing_method || 'background',
+                                    ocr_text_sample: status.result?.ocr_text_sample || '',
+                                    debug_info: status.result?.debug_info || {}
                                 };
                                 break;
                             } else if (status.status === 'failed') {
@@ -392,6 +624,38 @@
                     if (attempts >= maxAttempts) {
                         throw new Error('Processing timeout - please try again');
                     }
+                },
+
+                downloadResults() {
+                    if (!this.results) return;
+                    
+                    const dataStr = JSON.stringify(this.results, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `document_results_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(url);
+                },
+
+                async copyToClipboard() {
+                    if (!this.results) return;
+                    
+                    try {
+                        await navigator.clipboard.writeText(JSON.stringify(this.results, null, 2));
+                        // Could add a toast notification here
+                        console.log('Results copied to clipboard');
+                    } catch (err) {
+                        console.error('Failed to copy to clipboard:', err);
+                    }
+                },
+
+                processAnother() {
+                    this.clearFile();
+                    this.clearResults();
                 }
             }
         }

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     VERSION: str = "2.0.0"
     DESCRIPTION: str = "AI-powered document validation and data extraction"
     
+    # Server
+    PORT: int = int(os.getenv("PORT", 8000))
+    
     # CORS
     CORS_ORIGINS: List[str] = ["*"]
     
@@ -21,11 +24,12 @@ class Settings(BaseSettings):
     ]
     SUPPORTED_PDF_TYPES: List[str] = ["application/pdf"]
     
-    # Redis
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_PASSWORD: str = ""
+    # Redis - Fixed to include REDIS_URL
+    REDIS_URL: str = os.getenv("REDIS_URL", "")
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+    REDIS_PORT: int = int(os.getenv("REDIS_PORT", 6379))
+    REDIS_DB: int = int(os.getenv("REDIS_DB", 0))
+    REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
     
     # OCR
     TESSERACT_PATH: str = "/usr/bin/tesseract"

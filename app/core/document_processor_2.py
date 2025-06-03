@@ -15,7 +15,7 @@ import io
 from PIL import Image
 import fitz
 
-# Conditional imports for Railway/Docker compatibility
+# Conditional imports for Railway
 try:
     import redis.asyncio as redis
     REDIS_AVAILABLE = True
@@ -33,7 +33,7 @@ class DocumentType(Enum):
     KRA_PIN = "kra_pin"
     BUSINESS_CERT = "business_cert"
     KENYAN_ID = "kenyan_id"
-    FOREIGN_ID = "foreign_id"  # Added from vision AI
+    FOREIGN_ID = "foreign_id"
     PASSPORT = "passport"
     DRIVERS_LICENSE = "drivers_license"
     UNKNOWN = "unknown"
@@ -42,7 +42,7 @@ class DocumentType(Enum):
 class OCRResult:
     text: str
     confidence: float
-    bbox: List[float] = None
+    bbox: List[float]
 
 @dataclass
 class ClassificationResult:
@@ -64,7 +64,7 @@ class DocumentProcessor:
         self.redis_client = None
         self.processing_jobs = {}
         
-        # Vision AI enhancements - exclusion words for better name detection
+        # Enhanced exclusion words
         self.exclude_words = {
             'REPUBLIC', 'KENYA', 'NATIONAL', 'IDENTITY', 'CARD', 'SPECIMEN', 'FOREIGNER',
             'CERTIFICATE', 'SERIAL', 'NUMBER', 'CITY', 'HOLDER', 'SIGNATURE', 'PLACE', 
@@ -74,7 +74,7 @@ class DocumentProcessor:
         }
         
     async def initialize(self):
-        """Initialize processor components with enhanced error handling"""
+        """Initialize processor components"""
         try:
             # Redis setup with proper error handling
             if REDIS_AVAILABLE and settings.REDIS_URL:
@@ -86,67 +86,39 @@ class DocumentProcessor:
                         socket_timeout=5
                     )
                     await self.redis_client.ping()
-                    logger.info("Redis connection established via REDIS_URL")
+                    logger.info("Redis connection established")
                 except Exception as e:
-                    logger.warning(f"Redis connection via REDIS_URL failed: {e}")
-                    self.redis_client = None
-            elif REDIS_AVAILABLE:
-                # Fallback to individual parameters for local Docker
-                try:
-                    self.redis_client = redis.Redis(
-                        host=settings.REDIS_HOST,
-                        port=settings.REDIS_PORT,
-                        db=settings.REDIS_DB,
-                        password=settings.REDIS_PASSWORD if settings.REDIS_PASSWORD else None,
-                        decode_responses=True,
-                        socket_connect_timeout=5,
-                        socket_timeout=5
-                    )
-                    await self.redis_client.ping()
-                    logger.info("Redis connection established via individual parameters")
-                except Exception as e:
-                    logger.warning(f"Redis connection via parameters failed: {e}")
+                    logger.warning(f"Redis connection failed: {e}. Running without Redis.")
                     self.redis_client = None
             else:
-                logger.info("Redis not available, running without caching")
+                logger.info("Redis not configured, running without caching")
         
-            # Enhanced Tesseract configuration with debugging
+            # Configure Tesseract with debugging
             tesseract_path = settings.TESSERACT_PATH
             pytesseract.pytesseract.tesseract_cmd = tesseract_path
             
-            # Test Tesseract with detailed debugging
+            # Test Tesseract
             try:
                 test_image = np.ones((100, 100), dtype=np.uint8) * 255
                 test_result = pytesseract.image_to_string(test_image)
-                logger.info(f"✅ Tesseract test successful at {tesseract_path}")
-                
-                # Test image_to_data function
-                test_data = pytesseract.image_to_data(test_image, output_type=pytesseract.Output.DICT)
-                logger.info(f"✅ Tesseract image_to_data working, keys: {list(test_data.keys())}")
-                
+                logger.info(f"Tesseract test successful at {tesseract_path}")
             except Exception as e:
-                logger.error(f"❌ Tesseract test failed: {e}")
+                logger.error(f"Tesseract test failed: {e}")
                 # Try alternative paths
                 alternative_paths = ['/usr/bin/tesseract', '/usr/local/bin/tesseract', 'tesseract']
-                tesseract_working = False
-                
                 for path in alternative_paths:
                     try:
                         pytesseract.pytesseract.tesseract_cmd = path
                         pytesseract.image_to_string(test_image)
-                        logger.info(f"✅ Tesseract working with alternative path: {path}")
-                        tesseract_working = True
+                        logger.info(f"Tesseract working with path: {path}")
                         break
                     except:
                         continue
-                
-                if not tesseract_working:
-                    logger.error("❌ No working Tesseract installation found!")
-                    logger.error("This will cause OCR to return 0 text elements")
+                else:
+                    logger.error("No working Tesseract installation found!")
             
             # Load templates
             self.template_manager.load_templates()
-            logger.info(f"Loaded {len(self.template_manager.templates)} templates")
             
         except Exception as e:
             logger.error(f"Initialization error: {e}")
@@ -164,84 +136,72 @@ class DocumentProcessor:
                 self.file_handler.is_supported_extension(filename))
     
     async def process_document_sync(self, file_content: bytes, filename: str) -> Dict[str, Any]:
-        """Enhanced document processing with dual approach: templates + direct OCR"""
+        """Enhanced document processing with detailed debugging"""
         try:
-            logger.info(f"🔄 Starting processing for file: {filename}")
+            logger.info(f"Starting processing for file: {filename}")
             
             # Convert file to images
-            logger.info("📁 Converting to OpenCV images...")
+            logger.info("Converting to OpenCV image...")
             images = await self.file_handler.convert_to_images(file_content, filename)
-            logger.info(f"📁 Converted to {len(images)} images")
+            logger.info(f"Image converted. Shape: {images[0].shape if images else 'No images'}")
             
             if not images:
                 return self._create_error_result("No images could be extracted from file")
             
             # Process first image (main page)
             image = images[0]
-            logger.info(f"🖼️ Processing image with shape: {image.shape}")
             
-            # Try enhanced OCR extraction first (Vision AI approach)
-            logger.info("🔍 Starting enhanced OCR extraction...")
+            # Enhanced OCR extraction with debugging
+            logger.info("Starting OCR extraction...")
             ocr_results = self._enhanced_ocr_extraction_with_debugging(image)
-            logger.info(f"🔍 Enhanced OCR found {len(ocr_results)} text elements")
+            logger.info(f"OCR completed. Found {len(ocr_results)} text elements")
             
+            # Log some OCR results for debugging
             if ocr_results:
-                # Use vision AI approach for classification and extraction
-                logger.info("🎯 Using Vision AI approach for classification...")
-                classification = self._vision_ai_classify_document(ocr_results)
-                logger.info(f"🎯 Vision AI Classification: {classification.document_type.value}, confidence: {classification.confidence}")
-                
-                extraction = self._vision_ai_extract_fields(ocr_results, classification.document_type)
-                logger.info(f"📊 Vision AI Extraction: success={extraction.success}, data={extraction.data}")
-                
-                overall_confidence = (classification.confidence + extraction.confidence) / 2
-                
-                return {
-                    "document_type": classification.document_type.value,
-                    "classification_confidence": classification.confidence,
-                    "extraction_success": extraction.success,
-                    "extracted_data": extraction.data,
-                    "extraction_confidence": extraction.confidence,
-                    "extraction_errors": extraction.errors,
-                    "overall_confidence": overall_confidence,
-                    "processing_method": "vision_ai",
-                    "ocr_text_sample": classification.extracted_features.get('text_sample', ''),
-                    "debug_info": {
-                        "ocr_count": len(ocr_results),
-                        "image_shape": list(image.shape),
-                        "tesseract_path": pytesseract.pytesseract.tesseract_cmd
-                    }
-                }
+                sample_texts = [r.text for r in ocr_results[:5]]
+                logger.info(f"Sample OCR texts: {sample_texts}")
             else:
-                # Fallback to template approach
-                logger.warning("⚠️ No OCR results, falling back to template approach...")
-                
-                # Classify document using template approach
-                classification = self.classify_document(image)
-                
-                if classification.document_type != DocumentType.UNKNOWN:
-                    # Extract data using template
-                    extraction_result = self.extract_data_with_template(image, classification.document_type)
-                    
-                    overall_confidence = (classification.confidence + extraction_result.confidence) / 2
-                    
-                    return {
-                        "document_type": classification.document_type.value,
-                        "classification_confidence": classification.confidence,
-                        "extraction_success": extraction_result.success,
-                        "extracted_data": extraction_result.data,
-                        "extraction_confidence": extraction_result.confidence,
-                        "extraction_errors": extraction_result.errors,
-                        "overall_confidence": overall_confidence,
-                        "processing_method": "template_fallback",
-                        "debug_info": {"fallback_reason": "No OCR results from enhanced extraction"}
-                    }
-                else:
-                    return self._create_error_result("Document type could not be determined and OCR failed")
+                logger.warning("No OCR results found!")
+                # Try different preprocessing
+                logger.info("Trying enhanced preprocessing...")
+                enhanced_image = self._enhanced_preprocessing(image)
+                ocr_results = self._fallback_ocr_extraction(enhanced_image)
+                logger.info(f"Fallback OCR found {len(ocr_results)} text elements")
+            
+            # Auto-detect document type
+            logger.info("Starting document classification...")
+            classification = self._auto_detect_document_type(ocr_results)
+            logger.info(f"Classification: {classification.document_type.value}, confidence: {classification.confidence}")
+            
+            # Enhanced field extraction
+            logger.info("Starting field extraction...")
+            extraction = self._enhanced_field_extraction(ocr_results, classification.document_type)
+            logger.info(f"Extraction completed. Success: {extraction.success}, data: {extraction.data}")
+            
+            overall_confidence = (classification.confidence + extraction.confidence) / 2
+            
+            result = {
+                "document_type": classification.document_type.value,
+                "classification_confidence": classification.confidence,
+                "extraction_success": extraction.success,
+                "extracted_data": extraction.data,
+                "extraction_confidence": extraction.confidence,
+                "extraction_errors": extraction.errors,
+                "overall_confidence": overall_confidence,
+                "ocr_text_sample": classification.extracted_features.get('text_sample', ''),
+                "debug_info": {
+                    "ocr_count": len(ocr_results),
+                    "image_shape": list(image.shape) if image is not None else None,
+                    "tesseract_path": pytesseract.pytesseract.tesseract_cmd
+                }
+            }
+            
+            logger.info(f"Processing completed successfully: {result}")
+            return result
             
         except Exception as e:
-            logger.error(f"❌ Processing error: {str(e)}")
-            logger.error(f"❌ Processing traceback: {traceback.format_exc()}")
+            logger.error(f"Processing error: {str(e)}")
+            logger.error(f"Processing traceback: {traceback.format_exc()}")
             return self._create_error_result(f"Processing failed: {str(e)}")
     
     def _create_error_result(self, error_message: str) -> Dict[str, Any]:
@@ -259,146 +219,177 @@ class DocumentProcessor:
         }
     
     def _enhanced_ocr_extraction_with_debugging(self, image: np.ndarray) -> List[OCRResult]:
-        """Enhanced OCR with comprehensive debugging and multiple strategies"""
+        """Enhanced OCR with comprehensive debugging"""
         try:
-            logger.info("🔧 Starting enhanced OCR preprocessing...")
-            
-            # Convert to grayscale
+            # Convert to grayscale with debugging
             if len(image.shape) == 3:
                 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                logger.info(f"🔧 Converted to grayscale. Shape: {gray.shape}")
+                logger.info(f"Converted to grayscale. Shape: {gray.shape}")
             else:
                 gray = image.copy()
-                logger.info(f"🔧 Image already grayscale. Shape: {gray.shape}")
+                logger.info(f"Image already grayscale. Shape: {gray.shape}")
             
             # Check image properties
-            logger.info(f"📊 Image stats - Min: {gray.min()}, Max: {gray.max()}, Mean: {gray.mean():.2f}")
+            logger.info(f"Image stats - Min: {gray.min()}, Max: {gray.max()}, Mean: {gray.mean():.2f}")
             
-            # Enhanced preprocessing
-            logger.info("🔧 Applying preprocessing...")
+            # Enhanced preprocessing with debugging
+            logger.info("Applying preprocessing...")
             
             # 1. Noise reduction
             denoised = cv2.medianBlur(gray, 3)
+            logger.info("Applied median blur")
             
             # 2. Contrast enhancement
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             enhanced = clahe.apply(denoised)
+            logger.info("Applied CLAHE enhancement")
             
-            # 3. Try multiple OCR configurations
+            # 3. Try different OCR configurations
             configs = [
-                ('--psm 6', 'Uniform block of text'),
-                ('--psm 4', 'Single column'),
-                ('--psm 3', 'Fully automatic'),
-                ('--psm 1', 'Automatic with OSD'),
-                ('--psm 11', 'Sparse text'),
-                ('--psm 12', 'Sparse text with OSD'),
+                '--psm 6',  # Uniform block of text
+                '--psm 4',  # Single column
+                '--psm 3',  # Fully automatic
+                '--psm 1',  # Automatic with OSD
+                '--psm 11', # Sparse text
+                '--psm 12', # Sparse text with OSD
             ]
             
             best_results = []
             best_text_length = 0
             
-            for config, description in configs:
+            for config in configs:
                 try:
-                    logger.info(f"🔍 Trying OCR config: {config} ({description})")
+                    logger.info(f"Trying OCR config: {config}")
                     
-                    # Try image_to_data first
-                    try:
-                        ocr_data = pytesseract.image_to_data(enhanced, config=config, output_type=pytesseract.Output.DICT)
-                        
-                        if not ocr_data or 'text' not in ocr_data:
-                            logger.warning(f"⚠️ No OCR data for config {config}")
+                    # Get detailed OCR data
+                    ocr_data = pytesseract.image_to_data(enhanced, config=config, output_type=pytesseract.Output.DICT)
+                    
+                    if not ocr_data or 'text' not in ocr_data:
+                        logger.warning(f"No OCR data for config {config}")
+                        continue
+                    
+                    # Process OCR results
+                    current_results = []
+                    h, w = enhanced.shape
+                    
+                    for i in range(len(ocr_data['text'])):
+                        text = ocr_data['text'][i].strip()
+                        if not text:
                             continue
                         
-                        # Process OCR results
-                        current_results = []
-                        h, w = enhanced.shape
+                        conf = float(ocr_data['conf'][i])
+                        if conf < 10:  # Very low threshold for debugging
+                            continue
                         
-                        for i in range(len(ocr_data['text'])):
-                            text = ocr_data['text'][i].strip()
-                            if not text:
-                                continue
-                            
-                            conf = float(ocr_data['conf'][i])
-                            if conf < 10:  # Very low threshold for debugging
-                                continue
-                            
-                            try:
-                                # Get bounding box (optional for fallback)
-                                left = ocr_data.get('left', [0])[i] if i < len(ocr_data.get('left', [])) else 0
-                                top = ocr_data.get('top', [0])[i] if i < len(ocr_data.get('top', [])) else 0
-                                width = ocr_data.get('width', [w])[i] if i < len(ocr_data.get('width', [])) else w
-                                height = ocr_data.get('height', [h])[i] if i < len(ocr_data.get('height', [])) else h
-                                
-                                # Normalize coordinates
-                                x = left / w if w > 0 else 0
-                                y = top / h if h > 0 else 0
-                                x2 = (left + width) / w if w > 0 else 1
-                                y2 = (top + height) / h if h > 0 else 1
-                                
-                                current_results.append(OCRResult(
-                                    text=text,
-                                    confidence=conf / 100.0,
-                                    bbox=[x, y, x2, y2]
-                                ))
-                                
-                            except Exception as e:
-                                logger.warning(f"⚠️ Skipping OCR result {i} due to bbox error: {e}")
-                                # Add without bbox
-                                current_results.append(OCRResult(
-                                    text=text,
-                                    confidence=conf / 100.0,
-                                    bbox=[0, 0, 1, 1]
-                                ))
-                                continue
-                        
-                        total_text_length = sum(len(r.text) for r in current_results)
-                        logger.info(f"✅ Config {config}: {len(current_results)} results, {total_text_length} chars")
-                        
-                        if total_text_length > best_text_length:
-                            best_text_length = total_text_length
-                            best_results = current_results
-                    
-                    except Exception as data_error:
-                        logger.warning(f"⚠️ image_to_data failed for {config}: {data_error}")
-                        
-                        # Fallback to simple string extraction
                         try:
-                            simple_text = pytesseract.image_to_string(enhanced, config=config)
-                            if simple_text.strip():
-                                logger.info(f"✅ Fallback simple OCR for {config}: {len(simple_text)} chars")
-                                simple_results = [OCRResult(
-                                    text=simple_text.strip(),
-                                    confidence=0.5,
-                                    bbox=[0.0, 0.0, 1.0, 1.0]
-                                )]
-                                if len(simple_text) > best_text_length:
-                                    best_text_length = len(simple_text)
-                                    best_results = simple_results
-                        except Exception as simple_error:
-                            logger.warning(f"⚠️ Simple OCR also failed for {config}: {simple_error}")
+                            # Get bounding box
+                            left = ocr_data['left'][i]
+                            top = ocr_data['top'][i]
+                            width = ocr_data['width'][i]
+                            height = ocr_data['height'][i]
                             
+                            # Normalize coordinates
+                            x = left / w if w > 0 else 0
+                            y = top / h if h > 0 else 0
+                            x2 = (left + width) / w if w > 0 else 1
+                            y2 = (top + height) / h if h > 0 else 1
+                            
+                            current_results.append(OCRResult(
+                                text=text,
+                                confidence=conf / 100.0,
+                                bbox=[x, y, x2, y2]
+                            ))
+                            
+                        except (KeyError, IndexError, ZeroDivisionError) as e:
+                            logger.warning(f"Skipping OCR result {i} due to bbox error: {e}")
+                            continue
+                    
+                    total_text_length = sum(len(r.text) for r in current_results)
+                    logger.info(f"Config {config}: {len(current_results)} results, {total_text_length} chars")
+                    
+                    if total_text_length > best_text_length:
+                        best_text_length = total_text_length
+                        best_results = current_results
+                        
                 except Exception as e:
-                    logger.warning(f"⚠️ OCR config {config} failed completely: {e}")
+                    logger.warning(f"OCR config {config} failed: {e}")
                     continue
             
-            logger.info(f"🎯 Best OCR results: {len(best_results)} elements, {best_text_length} chars total")
+            logger.info(f"Best OCR results: {len(best_results)} elements, {best_text_length} chars total")
             
-            if best_results:
-                # Log sample of detected text
-                sample_texts = [r.text for r in best_results[:5]]
-                logger.info(f"📝 Sample detected texts: {sample_texts}")
-            else:
-                logger.error("❌ All OCR configurations failed!")
+            # If still no results, try fallback
+            if not best_results:
+                logger.warning("All OCR configs failed, trying simple string extraction")
+                try:
+                    simple_text = pytesseract.image_to_string(enhanced, config='--psm 6')
+                    if simple_text.strip():
+                        logger.info(f"Simple OCR found text: {simple_text[:100]}...")
+                        return [OCRResult(
+                            text=simple_text.strip(),
+                            confidence=0.5,
+                            bbox=[0.0, 0.0, 1.0, 1.0]
+                        )]
+                except Exception as e:
+                    logger.error(f"Even simple OCR failed: {e}")
             
             return best_results
             
         except Exception as e:
-            logger.error(f"❌ OCR extraction error: {e}")
-            logger.error(f"❌ OCR extraction traceback: {traceback.format_exc()}")
+            logger.error(f"OCR extraction error: {e}")
+            logger.error(f"OCR extraction traceback: {traceback.format_exc()}")
             return []
     
-    def _vision_ai_classify_document(self, ocr_results: List[OCRResult]) -> ClassificationResult:
-        """Vision AI classification with enhanced foreign document detection"""
+    def _enhanced_preprocessing(self, image: np.ndarray) -> np.ndarray:
+        """Apply enhanced preprocessing for difficult images"""
+        try:
+            # Convert to grayscale
+            if len(image.shape) == 3:
+                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+            else:
+                gray = image.copy()
+            
+            # Multiple preprocessing attempts
+            preprocessed_images = []
+            
+            # 1. Basic enhancement
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+            enhanced = clahe.apply(gray)
+            preprocessed_images.append(enhanced)
+            
+            # 2. Threshold variations
+            _, thresh1 = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            preprocessed_images.append(thresh1)
+            
+            # 3. Morphological operations
+            kernel = np.ones((2,2), np.uint8)
+            morph = cv2.morphologyEx(enhanced, cv2.MORPH_CLOSE, kernel)
+            preprocessed_images.append(morph)
+            
+            # Return the enhanced version for now
+            return enhanced
+            
+        except Exception as e:
+            logger.error(f"Enhanced preprocessing error: {e}")
+            return image
+    
+    def _fallback_ocr_extraction(self, image: np.ndarray) -> List[OCRResult]:
+        """Fallback OCR extraction with very basic approach"""
+        try:
+            # Just try to get any text
+            text = pytesseract.image_to_string(image, config='--psm 6')
+            if text.strip():
+                return [OCRResult(
+                    text=text.strip(),
+                    confidence=0.5,
+                    bbox=[0.0, 0.0, 1.0, 1.0]
+                )]
+            return []
+        except Exception as e:
+            logger.error(f"Fallback OCR failed: {e}")
+            return []
+    
+    def _auto_detect_document_type(self, ocr_results: List[OCRResult]) -> ClassificationResult:
+        """Enhanced auto-detect with better foreign document detection"""
         try:
             # Combine all text for analysis
             text_content = ' '.join([r.text.upper() for r in ocr_results]).strip()
@@ -459,7 +450,7 @@ class DocumentProcessor:
             if re.search(r'[A-Z]{2}\d{7}', text_content):  # Passport pattern
                 foreign_score += 3
             
-            logger.info(f"🎯 Enhanced scores - KRA: {kra_score}, National: {national_score}, Foreign: {foreign_score}, Business: {business_score}")
+            logger.info(f"Enhanced scores - KRA: {kra_score}, National: {national_score}, Foreign: {foreign_score}, Business: {business_score}")
             
             # Determine document type
             scores = {
@@ -495,26 +486,33 @@ class DocumentProcessor:
                 )
                 
         except Exception as e:
-            logger.error(f"❌ Vision AI classification error: {e}")
+            logger.error(f"Auto-detection error: {e}")
             return ClassificationResult(DocumentType.UNKNOWN, 0, {"error": str(e)})
     
     def _detect_languages(self, text: str) -> List[str]:
         """Simple language detection"""
         languages = []
         
+        # Romanian/Moldovan indicators
         if any(word in text for word in ['REPUBLICA', 'MOLDOVA', 'ESTE', 'VALABIL', 'TOATE']):
             languages.append('romanian')
+        
+        # French indicators
         if any(word in text for word in ['PASSEPORT', 'REPUBLIQUE', 'POUR', 'TOUS', 'LES', 'PAYS']):
             languages.append('french')
+        
+        # English indicators
         if any(word in text for word in ['PASSPORT', 'VALID', 'ALL', 'COUNTRIES', 'REPUBLIC']):
             languages.append('english')
+        
+        # Swahili/Kenyan indicators
         if any(word in text for word in ['JAMHURI', 'YA', 'KENYA', 'KITAMBULISHO']):
             languages.append('swahili')
         
         return languages
     
-    def _vision_ai_extract_fields(self, ocr_results: List[OCRResult], doc_type: DocumentType) -> ExtractionResult:
-        """Vision AI field extraction with spatial analysis"""
+    def _enhanced_field_extraction(self, ocr_results: List[OCRResult], doc_type: DocumentType) -> ExtractionResult:
+        """Enhanced field extraction with spatial analysis"""
         try:
             extracted_data = {}
             errors = []
@@ -523,15 +521,15 @@ class DocumentProcessor:
             if not ocr_results:
                 return ExtractionResult(False, {}, 0, ["No OCR results to extract from"])
             
-            # Extract fields based on document type using Vision AI logic
+            # Extract fields based on document type
             if doc_type == DocumentType.KRA_PIN:
-                confidence = self._extract_kra_fields_vision_ai(extracted_data, errors, ocr_results)
+                confidence = self._extract_kra_fields(extracted_data, errors, ocr_results)
             elif doc_type == DocumentType.KENYAN_ID:
-                confidence = self._extract_kenyan_id_fields_vision_ai(extracted_data, errors, ocr_results)
+                confidence = self._extract_kenyan_id_fields(extracted_data, errors, ocr_results)
             elif doc_type == DocumentType.FOREIGN_ID:
-                confidence = self._extract_foreign_id_fields_vision_ai(extracted_data, errors, ocr_results)
+                confidence = self._extract_foreign_id_fields(extracted_data, errors, ocr_results)
             elif doc_type == DocumentType.BUSINESS_CERT:
-                confidence = self._extract_business_fields_vision_ai(extracted_data, errors, ocr_results)
+                confidence = self._extract_business_fields(extracted_data, errors, ocr_results)
             else:
                 # Extract basic information for unknown types
                 all_text = ' '.join([r.text for r in ocr_results])
@@ -548,11 +546,11 @@ class DocumentProcessor:
             )
             
         except Exception as e:
-            logger.error(f"❌ Vision AI extraction error: {str(e)}")
+            logger.error(f"Enhanced extraction error: {str(e)}")
             return ExtractionResult(False, {}, 0, [f"Extraction failed: {str(e)}"])
     
-    def _extract_kra_fields_vision_ai(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
-        """Extract KRA PIN certificate fields using Vision AI logic"""
+    def _extract_kra_fields(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
+        """Extract KRA PIN certificate fields"""
         confidence_gained = 0
         
         # Extract PIN number
@@ -573,7 +571,7 @@ class DocumentProcessor:
         if not pin_found:
             errors.append("PIN number not found")
         
-        # Extract taxpayer name using exclusion logic
+        # Extract name (look for uppercase text lines)
         name_candidates = []
         for r in ocr_results:
             text = r.text.strip()
@@ -590,8 +588,8 @@ class DocumentProcessor:
         
         return confidence_gained
     
-    def _extract_kenyan_id_fields_vision_ai(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
-        """Extract Kenyan ID fields using Vision AI logic"""
+    def _extract_kenyan_id_fields(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
+        """Extract Kenyan ID fields"""
         confidence_gained = 0
         
         # Extract ID number (8 digits)
@@ -605,7 +603,7 @@ class DocumentProcessor:
         if 'id_number' not in extracted_data:
             errors.append("ID number not found")
         
-        # Extract name using exclusion logic
+        # Extract name
         name_candidates = []
         for r in ocr_results:
             text = r.text.strip()
@@ -622,8 +620,8 @@ class DocumentProcessor:
         
         return confidence_gained
     
-    def _extract_foreign_id_fields_vision_ai(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
-        """Extract foreign ID fields using Vision AI logic"""
+    def _extract_foreign_id_fields(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
+        """Extract foreign ID fields"""
         confidence_gained = 0
         
         # Extract passport/document number
@@ -637,7 +635,7 @@ class DocumentProcessor:
                     confidence_gained += 35
                     break
         
-        # Extract name using exclusion logic
+        # Extract name
         name_candidates = []
         for r in ocr_results:
             text = r.text.strip()
@@ -662,8 +660,8 @@ class DocumentProcessor:
         
         return confidence_gained
     
-    def _extract_business_fields_vision_ai(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
-        """Extract business certificate fields using Vision AI logic"""
+    def _extract_business_fields(self, extracted_data: Dict, errors: List, ocr_results: List[OCRResult]) -> int:
+        """Extract business certificate fields"""
         confidence_gained = 0
         
         # Extract business name (longest reasonable text)
@@ -682,199 +680,7 @@ class DocumentProcessor:
         
         return confidence_gained
 
-    # Keep existing template-based methods as fallback
-    def classify_document(self, image: np.ndarray) -> ClassificationResult:
-        """Template-based classification (fallback)"""
-        # Enhanced preprocessing
-        processed_image = self.preprocess_image(image)
-        
-        # Extract text
-        text = self.extract_text_features(processed_image)
-        
-        # Classification rules for each document type
-        classification_rules = {
-            DocumentType.KRA_PIN: {
-                'patterns': [
-                    r'PIN Certificate',
-                    r'Kenya Revenue Authority',
-                    r'A\d{9}[A-Z]',
-                    r'Tax Obligation'
-                ],
-                'weight': 1.0
-            },
-            DocumentType.KENYAN_ID: {
-                'patterns': [
-                    r'JAMHURI YA KENYA',
-                    r'REPUBLIC OF KENYA',
-                    r'\d{8}',
-                    r'FULL NAME'
-                ],
-                'weight': 1.0
-            },
-            DocumentType.BUSINESS_CERT: {
-                'patterns': [
-                    r'Business Registration',
-                    r'Certificate of Registration',
-                    r'Registrar of Companies'
-                ],
-                'weight': 1.0
-            }
-        }
-        
-        scores = {}
-        for doc_type, rules in classification_rules.items():
-            score = 0
-            for pattern in rules['patterns']:
-                matches = len(re.findall(pattern, text, re.IGNORECASE))
-                score += matches * 20
-            
-            scores[doc_type] = score * rules['weight']
-        
-        # Find best match
-        if scores:
-            best_type = max(scores, key=scores.get)
-            confidence = min(scores[best_type], 100)
-            
-            if confidence < 30:
-                best_type = DocumentType.UNKNOWN
-                confidence = 0
-        else:
-            best_type = DocumentType.UNKNOWN
-            confidence = 0
-        
-        return ClassificationResult(
-            document_type=best_type,
-            confidence=confidence,
-            extracted_features={'text': text, 'scores': scores}
-        )
-    
-    def extract_data_with_template(self, image: np.ndarray, doc_type: DocumentType) -> ExtractionResult:
-        """Template-based extraction (fallback)"""
-        template = self.template_manager.get_template(doc_type.value)
-        if not template:
-            return ExtractionResult(
-                success=False,
-                data={},
-                confidence=0,
-                errors=[f"No template found for {doc_type.value}"]
-            )
-        
-        extracted_data = {}
-        errors = []
-        confidence_scores = []
-        
-        h, w = image.shape[:2]
-        
-        for field in template.fields:
-            try:
-                # Extract region
-                x1 = int(field.region.x1 * w)
-                y1 = int(field.region.y1 * h)
-                x2 = int(field.region.x2 * w)
-                y2 = int(field.region.y2 * h)
-                
-                region = image[y1:y2, x1:x2]
-                
-                if region.size == 0:
-                    errors.append(f"Empty region for field: {field.name}")
-                    continue
-                
-                # Preprocess region if specified
-                if field.preprocessing:
-                    region = self.preprocess_region(region, field.preprocessing)
-                
-                # Extract text
-                text = pytesseract.image_to_string(region, config=field.ocr_config).strip()
-                
-                # Post-process text
-                if field.post_processing:
-                    text = self.post_process_text(text, field.post_processing)
-                
-                # Validate
-                if field.validation_pattern:
-                    if re.match(field.validation_pattern, text):
-                        extracted_data[field.name] = text
-                        confidence_scores.append(80)
-                    else:
-                        errors.append(f"Validation failed for {field.name}: {text}")
-                        extracted_data[field.name] = text
-                        confidence_scores.append(30)
-                else:
-                    extracted_data[field.name] = text
-                    confidence_scores.append(70)
-                    
-            except Exception as e:
-                errors.append(f"Error extracting {field.name}: {str(e)}")
-                confidence_scores.append(0)
-        
-        overall_confidence = sum(confidence_scores) / len(confidence_scores) if confidence_scores else 0
-        
-        return ExtractionResult(
-            success=len(errors) == 0,
-            data=extracted_data,
-            confidence=overall_confidence,
-            errors=errors
-        )
-    
-    def preprocess_image(self, image: np.ndarray) -> np.ndarray:
-        """Preprocess image for better OCR"""
-        if len(image.shape) == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = image.copy()
-        
-        # Noise reduction
-        denoised = cv2.medianBlur(gray, 3)
-        
-        # Contrast enhancement
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        enhanced = clahe.apply(denoised)
-        
-        return enhanced
-    
-    def preprocess_region(self, region: np.ndarray, method: str) -> np.ndarray:
-        """Preprocess specific region"""
-        if method == 'enhance':
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-            return clahe.apply(region)
-        elif method == 'invert':
-            return cv2.bitwise_not(region)
-        elif method == 'table_cell':
-            kernel = np.ones((2,2), np.uint8)
-            cleaned = cv2.morphologyEx(region, cv2.MORPH_CLOSE, kernel)
-            return cv2.threshold(cleaned, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-        return region
-    
-    def extract_text_features(self, image: np.ndarray) -> str:
-        """Extract text using OCR (template fallback)"""
-        configs = [
-            '--psm 6',
-            '--psm 4',
-            '--psm 3'
-        ]
-        
-        best_text = ""
-        for config in configs:
-            try:
-                text = pytesseract.image_to_string(image, config=config)
-                if len(text) > len(best_text):
-                    best_text = text
-            except Exception:
-                continue
-        
-        return best_text.strip()
-    
-    def post_process_text(self, text: str, method: str) -> str:
-        """Post-process extracted text"""
-        if method == 'clean_name':
-            text = re.sub(r'[^A-Za-z\s]', '', text)
-            return ' '.join(text.upper().split())
-        elif method == 'extract_email':
-            email_match = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text.lower())
-            return email_match.group(0) if email_match else text.lower()
-        return text
-    
-    # Keep all existing async methods unchanged
+    # Keep the rest of your methods (process_document_async, update_job_status, etc.)
     async def process_document_async(self, document_id: str, file_content: bytes, 
                                    filename: str, webhook_url: Optional[str] = None):
         """Process document asynchronously"""
@@ -957,7 +763,7 @@ class DocumentProcessor:
             logger.error(f"Webhook error for {document_id}: {str(e)}")
     
     def get_supported_documents(self) -> List[Dict]:
-        """Get supported document types (now 4 total with foreign_id)"""
+        """Get supported document types (4 total)"""
         return [
             {
                 "type": "kra_pin", 
@@ -986,19 +792,16 @@ class DocumentProcessor:
         ]
     
     async def health_check(self) -> Dict:
-        """Enhanced health check with detailed Tesseract testing"""
+        """Enhanced health check with Tesseract testing"""
         services = {"api": "ok"}
         
-        # Test OCR with detailed information
+        # Test OCR
         try:
             test_image = np.ones((100, 100), dtype=np.uint8) * 255
-            test_result = pytesseract.image_to_string(test_image)
-            test_data = pytesseract.image_to_data(test_image, output_type=pytesseract.Output.DICT)
+            pytesseract.image_to_string(test_image)
             services["ocr"] = "ok"
-            services["tesseract_path"] = pytesseract.pytesseract.tesseract_cmd
         except Exception as e:
             services["ocr"] = f"error: {str(e)}"
-            services["tesseract_path"] = pytesseract.pytesseract.tesseract_cmd
         
         # Test Redis
         if self.redis_client:
