@@ -1,43 +1,62 @@
-FROM python:3.9-slim
+# Use Python slim image - much smaller than regular python image
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    PORT=8000 \
+    PYTHONPATH="/app"
 
-# Install only essential system dependencies
-RUN apt-get update && apt-get install -y \
+# Install system dependencies required for OpenCV and multi-OCR engines
+RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     libtesseract-dev \
-    libglib2.0-0 \
     libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgcc-s1 \
     curl \
+    wget \
     && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    && apt-get clean \
+    && apt-get autoremove -y
 
 # Set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy requirements
+COPY requirements.txt requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with minimal footprint
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip cache purge
 
-# Copy application code
-COPY . .
+# Copy application files
+COPY app/ app/
+COPY templates/ templates/
+COPY static/ static/
 
-# Create directories
-RUN mkdir -p /app/uploads /app/logs /app/templates
+# Create directories for multi-OCR outputs
+RUN mkdir -p logs uploads ocr_comparison_outputs && \
+    mkdir -p ocr_comparison_outputs/originals \
+    ocr_comparison_outputs/tesseract_annotated \
+    ocr_comparison_outputs/paddle_annotated \
+    ocr_comparison_outputs/vision_agent_annotated \
+    ocr_comparison_outputs/easyocr_annotated && \
+    chmod 755 logs uploads ocr_comparison_outputs
 
 # Expose port
-EXPOSE 8000
+EXPOSE $PORT
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# Lightweight health check
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
+    CMD curl -f http://localhost:$PORT/health || exit 1
 
 # Start command
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level warning
