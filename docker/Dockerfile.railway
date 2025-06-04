@@ -8,12 +8,20 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000 \
     PYTHONPATH="/app"
 
-# Install only essential system dependencies
+# Install system dependencies required for OpenCV and multi-OCR engines
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr \
     tesseract-ocr-eng \
     libtesseract-dev \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgcc-s1 \
     curl \
+    wget \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean \
     && apt-get autoremove -y
@@ -22,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.railway.txt requirements.txt
+COPY requirements.txt requirements.txt
 
 # Install Python dependencies with minimal footprint
 RUN pip install --no-cache-dir --upgrade pip && \
@@ -34,9 +42,14 @@ COPY app/ app/
 COPY templates/ templates/
 COPY static/ static/
 
-# Create minimal directories
-RUN mkdir -p logs uploads && \
-    chmod 755 logs uploads
+# Create directories for multi-OCR outputs
+RUN mkdir -p logs uploads ocr_comparison_outputs && \
+    mkdir -p ocr_comparison_outputs/originals \
+    ocr_comparison_outputs/tesseract_annotated \
+    ocr_comparison_outputs/paddle_annotated \
+    ocr_comparison_outputs/vision_agent_annotated \
+    ocr_comparison_outputs/easyocr_annotated && \
+    chmod 755 logs uploads ocr_comparison_outputs
 
 # Expose port
 EXPOSE $PORT
@@ -45,5 +58,5 @@ EXPOSE $PORT
 HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=2 \
     CMD curl -f http://localhost:$PORT/health || exit 1
 
-# FIXED: Use shell form to expand environment variables
+# Start command
 CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --log-level warning
