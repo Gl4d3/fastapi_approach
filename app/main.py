@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+
 import asyncio
 import uuid
 from typing import Dict, List, Optional, Any
@@ -18,6 +20,7 @@ from .models.schemas import (
     ProcessingRequest, ProcessingStatus, ValidationResult,
     SupportedDocument, BatchProcessResponse
 )
+from .core.backup_document_processor import BackupProcessorManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 processor = None
+backup_processor = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -59,9 +63,11 @@ os.makedirs("templates", exist_ok=True)
 # Mount static files and templates
 try:
     app.mount("/static", StaticFiles(directory="static"), name="static")
+    app.mount("/static/annotated", StaticFiles(directory="ocr_comparison_outputs"), name="annotated")
     templates = Jinja2Templates(directory="templates")
 except Exception as e:
     logger.warning(f"Template setup failed: {e}")
+    logger.warning(f"Could not mount annotated images directory: {e}")
     templates = None
 
 # Enhanced Web UI Routes
@@ -274,6 +280,93 @@ async def get_processing_status(document_id: str):
     }
     
     return enhanced_status
+
+@app.post("/process-backup-multi-ocr")
+async def process_document_backup_multi_ocr(file: UploadFile = File(...)):
+    """Process document with backup processor using multiple OCR engines"""
+    if not backup_processor:
+        raise HTTPException(status_code=503, detail="Backup processor unavailable")
+    
+    if not processor.is_supported_file(file.filename, file.content_type):
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
+    
+    start_time = datetime.now()
+    
+    try:
+        file_content = await file.read()
+        
+        if len(file_content) > settings.MAX_FILE_SIZE:
+            raise HTTPException(status_code=400, detail=f"File too large. Max size: {settings.MAX_FILE_SIZE/1024/1024}MB")
+        
+        logger.info(f"🔄 Processing with backup multi-OCR: {file.filename}, size: {len(file_content)} bytes")
+        
+        result = await backup_processor.process_document(file_content, file.filename)
+        processing_time = (datetime.now() - start_time).total_seconds()
+        
+        # Enhanced response
+        enhanced_result = {
+            "processing_method": "backup_multi_ocr",
+            "processing_time": processing_time,
+            "available_engines": backup_processor.get_available_engines(),
+            "output_directory": backup_processor.get_output_directory(),
+            "api_version": "2.1.0_backup",
+            "timestamp": datetime.now().isoformat(),
+            **result
+        }
+        
+        logger.info(f"✅ Backup multi-OCR processing completed for: {file.filename}")
+        
+        return enhanced_result
+        
+    except Exception as e:
+        logger.error(f"❌ Backup multi-OCR processing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Backup processing failed: {str(e)}")
+
+@app.get("/backup-processor/engines")
+async def get_backup_processor_engines():
+    """Get available OCR engines in backup processor"""
+    if not backup_processor:
+        raise HTTPException(status_code=503, detail="Backup processor unavailable")
+    
+    return {
+        "available_engines": backup_processor.get_available_engines(),
+        "output_directory": backup_processor.get_output_directory(),
+        "features": [
+            "Multiple OCR engine comparison",
+            "Perfect document classification logic",
+            "Annotated image outputs",
+            "Comprehensive field extraction",
+            "PaddleOCR orientation detection"
+        ]
+    }
+
+@app.get("/backup-processor/outputs")
+async def list_backup_processor_outputs():
+    """List output files from backup processor"""
+    if not backup_processor:
+        raise HTTPException(status_code=503, detail="Backup processor unavailable")
+    
+    try:
+        output_dir = backup_processor.get_output_directory()
+        outputs = {}
+        
+        for subdir in ['originals', 'tesseract_annotated', 'paddle_annotated', 'vision_agent_annotated', 'easyocr_annotated']:
+            full_path = os.path.join(output_dir, subdir)
+            if os.path.exists(full_path):
+                outputs[subdir] = os.listdir(full_path)
+        
+        # Also list comparison files
+        comparison_files = [f for f in os.listdir(output_dir) if f.endswith('_comparison.json')]
+        outputs['comparison_files'] = comparison_files
+        
+        return {
+            "output_directory": output_dir,
+            "outputs": outputs,
+            "total_files": sum(len(files) for files in outputs.values() if isinstance(files, list))
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to list outputs: {str(e)}")
 
 @app.post("/batch-process", response_model=BatchProcessResponse)
 async def batch_process_documents(

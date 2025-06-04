@@ -1,23 +1,30 @@
-# Core FastAPI dependencies
+# Core FastAPI dependencies (existing)
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
 aiofiles==23.2.1
 aiohttp==3.9.1
 pydantic-settings==2.1.0
+jinja2==3.1.2
 
-# Image processing and OCR
+# Image processing and OCR (enhanced)
 opencv-python-headless==4.8.1.78
 pytesseract==0.3.10
 Pillow==10.1.0
-numpy==1.24.3
+numpy==1.24.4
 scikit-image==0.22.0
 
 # PDF processing
 PyMuPDF==1.23.8
 
-# Alternative OCR engines
+# Multiple OCR engines for comparison
 easyocr==1.7.0
+paddleocr>=2.7.0
+paddlepaddle>=2.5.2
+
+# Vision Agent OCR (open source)
+vision-agent>=0.2.0
+pillow-heif>=0.13.0
 
 # Data processing
 pydantic==2.5.0
@@ -39,3 +46,9 @@ passlib[bcrypt]==1.7.4
 pytest==7.4.3
 pytest-asyncio==0.21.1
 httpx==0.25.2
+pytest-cov==4.1.0
+
+# Build dependencies for Railway
+setuptools==69.0.3
+wheel==0.42.0
+

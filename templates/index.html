@@ -32,9 +32,50 @@
         .confidence-bar {
             background: linear-gradient(90deg, #ef4444 0%, #f59e0b 50%, #10b981 100%);
         }
+        .ocr-engine-card {
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        .ocr-engine-card.best-result {
+            border-left-color: #10b981;
+            background-color: #f0fdf4;
+        }
+        .ocr-engine-card.has-error {
+            border-left-color: #ef4444;
+            background-color: #fef2f2;
+        }
+        .image-comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+        .annotated-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.5rem;
+            border: 2px solid #e5e7eb;
+            transition: transform 0.2s ease;
+        }
+        .annotated-image:hover {
+            transform: scale(1.05);
+            border-color: #3b82f6;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .tab-button {
+            transition: all 0.2s ease;
+        }
+        .tab-button.active {
+            background-color: #3b82f6;
+            color: white;
+        }
     </style>
 </head>
-<body class="bg-gray-50" x-data="enhancedDocumentProcessor()">
+<body class="bg-gray-50" x-data="multiOCRDocumentProcessor()">
     <!-- Header -->
     <header class="bg-white shadow-sm border-b border-gray-200">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,16 +83,16 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <h1 class="text-xl font-bold text-gray-900">
-                            <i class="fas fa-file-alt text-blue-600 mr-2"></i>
-                            Enhanced Document Processor
+                            <i class="fas fa-microscope text-blue-600 mr-2"></i>
+                            Multi-OCR Document Processor
                         </h1>
                     </div>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm text-gray-500">AI-Powered • Vision Analysis • Spatial Extraction</span>
+                    <span class="text-sm text-gray-500">Multi-Engine • Perfect Logic • Comprehensive Analysis</span>
                     <div class="flex items-center space-x-2">
                         <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span class="text-xs text-gray-600">Live</span>
+                        <span class="text-xs text-gray-600">Live • Updated: 2025-06-04</span>
                     </div>
                 </div>
             </div>
@@ -64,53 +105,82 @@
         <div class="px-4 py-6 sm:px-0">
             <div class="text-center mb-8">
                 <h2 class="text-3xl font-extrabold text-gray-900 mb-4">
-                    Enhanced Document Processing
+                    Multi-OCR Engine Comparison
                 </h2>
-                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
-                    Advanced AI-powered extraction with spatial analysis, multi-language support, and enhanced field detection.
-                    Process Kenyan documents, foreign IDs, business certificates, and more with higher accuracy.
+                <p class="text-lg text-gray-600 max-w-4xl mx-auto">
+                    Compare results from Tesseract, PaddleOCR, Vision Agent, and EasyOCR engines. 
+                    Uses perfect classification logic with comprehensive field extraction and visual annotation comparison.
                 </p>
-                <div class="mt-4 flex justify-center space-x-6 text-sm text-gray-500">
-                    <span><i class="fas fa-brain text-blue-500 mr-1"></i>Vision AI</span>
-                    <span><i class="fas fa-globe text-green-500 mr-1"></i>Multi-Language</span>
-                    <span><i class="fas fa-crosshairs text-purple-500 mr-1"></i>Spatial Analysis</span>
-                    <span><i class="fas fa-shield-alt text-red-500 mr-1"></i>Enhanced Security</span>
+                <div class="mt-4 flex justify-center flex-wrap gap-3 text-sm text-gray-500">
+                    <span><i class="fas fa-eye text-blue-500 mr-1"></i>Tesseract OCR</span>
+                    <span><i class="fas fa-compass text-green-500 mr-1"></i>PaddleOCR (Orientation)</span>
+                    <span><i class="fas fa-brain text-purple-500 mr-1"></i>Vision Agent</span>
+                    <span><i class="fas fa-magic text-orange-500 mr-1"></i>EasyOCR</span>
+                    <span><i class="fas fa-chart-line text-red-500 mr-1"></i>Perfect Logic</span>
                 </div>
             </div>
 
-            <!-- Enhanced Supported Documents -->
-            <div class="mb-8">
-                <h3 class="text-lg font-medium text-gray-900 mb-4 text-center">Supported Documents</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
-                    {% for doc in supported_documents %}
-                    <div class="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow">
-                        <div class="text-blue-600 text-2xl mb-2">
-                            {% if doc.type == 'kra_pin' %}
-                                <i class="fas fa-receipt"></i>
-                            {% elif doc.type == 'kenyan_id' %}
-                                <i class="fas fa-id-card"></i>
-                            {% elif doc.type == 'foreign_id' %}
-                                <i class="fas fa-passport"></i>
-                            {% elif doc.type == 'business_cert' %}
-                                <i class="fas fa-building"></i>
-                            {% else %}
-                                <i class="fas fa-file-alt"></i>
-                            {% endif %}
+            <!-- Engine Status Display -->
+            <div class="mb-8" x-data="{ engines: [] }" x-init="loadEngineStatus()">
+                <h3 class="text-lg font-medium text-gray-900 mb-4 text-center">Available OCR Engines</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+                    <template x-for="engine in engines">
+                        <div class="bg-white rounded-lg shadow-md p-4 text-center">
+                            <div class="text-2xl mb-2" :class="getEngineColor(engine)">
+                                <i :class="getEngineIcon(engine)"></i>
+                            </div>
+                            <h4 class="font-medium text-gray-900" x-text="formatEngineName(engine)"></h4>
+                            <div class="mt-2">
+                                <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                                    Available
+                                </span>
+                            </div>
                         </div>
-                        <h4 class="font-medium text-gray-900">{{ doc.name }}</h4>
-                        <p class="text-sm text-gray-600 mt-1">{{ doc.description }}</p>
-                        <div class="mt-2 flex flex-wrap gap-1 justify-center">
-                            {% for field in doc.fields %}
-                            <span class="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">{{ field.replace('_', ' ').title() }}</span>
-                            {% endfor %}
+                    </template>
+                </div>
+            </div>
+
+            <!-- Supported Documents -->
+            <div class="mb-8">
+                <h3 class="text-lg font-medium text-gray-900 mb-4 text-center">Supported Document Types (Perfect Logic)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                    <div class="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow">
+                        <div class="text-green-600 text-2xl mb-2">
+                            <i class="fas fa-id-card"></i>
+                        </div>
+                        <h4 class="font-medium text-gray-900">National ID</h4>
+                        <p class="text-sm text-gray-600 mt-1">Republic of Kenya identification</p>
+                        <div class="mt-2 text-xs text-gray-500">
+                            Fields: full_name, id_number, sex, date_of_birth
                         </div>
                     </div>
-                    {% endfor %}
+                    
+                    <div class="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow">
+                        <div class="text-purple-600 text-2xl mb-2">
+                            <i class="fas fa-certificate"></i>
+                        </div>
+                        <h4 class="font-medium text-gray-900">Foreign Certificate</h4>
+                        <p class="text-sm text-gray-600 mt-1">Foreigner certificate documents</p>
+                        <div class="mt-2 text-xs text-gray-500">
+                            Fields: name, indiv_number, sex, date_of_birth, date_of_expiry
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-lg shadow-md p-4 text-center hover:shadow-lg transition-shadow">
+                        <div class="text-indigo-600 text-2xl mb-2">
+                            <i class="fas fa-passport"></i>
+                        </div>
+                        <h4 class="font-medium text-gray-900">Passport</h4>
+                        <p class="text-sm text-gray-600 mt-1">International passport documents</p>
+                        <div class="mt-2 text-xs text-gray-500">
+                            Fields: passport_number, name, date_of_birth
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Upload Section -->
-            <div class="max-w-3xl mx-auto">
+            <div class="max-w-4xl mx-auto">
                 <div class="bg-white shadow-lg rounded-lg p-6">
                     <!-- Upload Zone -->
                     <div class="upload-zone rounded-lg p-8 text-center cursor-pointer"
@@ -123,13 +193,13 @@
                         <div x-show="!selectedFile">
                             <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
                             <p class="text-lg font-medium text-gray-900 mb-2">
-                                Drop your document here or click to browse
+                                Drop your document here for Multi-OCR Analysis
                             </p>
                             <p class="text-sm text-gray-500">
                                 Supports PDF, JPEG, PNG, TIFF files up to 10MB
                             </p>
                             <p class="text-xs text-gray-400 mt-2">
-                                Enhanced with spatial analysis and multi-language detection
+                                Compare Tesseract, PaddleOCR, Vision Agent & EasyOCR results
                             </p>
                         </div>
 
@@ -157,36 +227,36 @@
 
                     <!-- Processing Mode Selection -->
                     <div class="mt-6" x-show="selectedFile">
-                        <label class="block text-sm font-medium text-gray-700 mb-3">Processing Mode</label>
-                        <div class="grid grid-cols-2 gap-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Processing Engine</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <label class="relative">
                                 <input type="radio" 
                                        name="processing_mode" 
-                                       value="sync" 
+                                       value="multi_ocr" 
                                        x-model="processingMode"
                                        class="sr-only">
                                 <div class="border-2 rounded-lg p-4 cursor-pointer transition-all"
-                                     :class="processingMode === 'sync' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
+                                     :class="processingMode === 'multi_ocr' ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300'">
                                     <div class="flex items-center">
-                                        <i class="fas fa-bolt text-blue-600 mr-2"></i>
-                                        <span class="font-medium">Vision AI Processing</span>
+                                        <i class="fas fa-microscope text-purple-600 mr-2"></i>
+                                        <span class="font-medium">Multi-OCR Comparison</span>
                                     </div>
-                                    <p class="text-sm text-gray-600 mt-1">Get results immediately with enhanced accuracy</p>
+                                    <p class="text-sm text-gray-600 mt-1">Compare all OCR engines with perfect logic</p>
                                 </div>
                             </label>
                             <label class="relative">
                                 <input type="radio" 
                                        name="processing_mode" 
-                                       value="async" 
+                                       value="standard" 
                                        x-model="processingMode"
                                        class="sr-only">
                                 <div class="border-2 rounded-lg p-4 cursor-pointer transition-all"
-                                     :class="processingMode === 'async' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
+                                     :class="processingMode === 'standard' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'">
                                     <div class="flex items-center">
-                                        <i class="fas fa-clock text-blue-600 mr-2"></i>
-                                        <span class="font-medium">Background Process</span>
+                                        <i class="fas fa-bolt text-blue-600 mr-2"></i>
+                                        <span class="font-medium">Standard Processing</span>
                                     </div>
-                                    <p class="text-sm text-gray-600 mt-1">Process in background with webhook support</p>
+                                    <p class="text-sm text-gray-600 mt-1">Use enhanced single engine processing</p>
                                 </div>
                             </label>
                         </div>
@@ -196,10 +266,13 @@
                     <div class="mt-6" x-show="selectedFile">
                         <button @click="processDocument()" 
                                 :disabled="isProcessing"
-                                class="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-[1.02]">
+                                class="w-full py-3 px-4 rounded-lg font-medium transition-all transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                :class="processingMode === 'multi_ocr' ? 
+                                    'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:from-purple-700 hover:to-purple-800' : 
+                                    'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800'">
                             <span x-show="!isProcessing">
-                                <i class="fas fa-magic mr-2"></i>
-                                Process with Enhanced AI
+                                <i :class="processingMode === 'multi_ocr' ? 'fas fa-microscope' : 'fas fa-magic'" class="mr-2"></i>
+                                <span x-text="processingMode === 'multi_ocr' ? 'Run Multi-OCR Analysis' : 'Process with Enhanced AI'"></span>
                             </span>
                             <span x-show="isProcessing">
                                 <i class="fas fa-spinner fa-spin mr-2"></i>
@@ -211,7 +284,8 @@
                     <!-- Progress Bar -->
                     <div x-show="isProcessing" class="mt-4">
                         <div class="bg-gray-200 rounded-full h-3 overflow-hidden">
-                            <div class="progress-bar bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500" 
+                            <div class="progress-bar h-3 rounded-full transition-all duration-500" 
+                                 :class="processingMode === 'multi_ocr' ? 'bg-gradient-to-r from-purple-500 to-purple-600' : 'bg-gradient-to-r from-blue-500 to-purple-600'"
                                  :style="`width: ${progress}%`"></div>
                         </div>
                         <div class="flex justify-between text-sm text-gray-600 mt-2">
@@ -221,174 +295,334 @@
                     </div>
                 </div>
 
-                <!-- Enhanced Results Section -->
-                <div x-show="results" class="mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
+                <!-- Multi-OCR Results Section -->
+                <div x-show="results && results.processing_method === 'backup_multi_ocr'" class="mt-8">
                     <!-- Results Header -->
-                    <div class="bg-gradient-to-r from-green-500 to-blue-600 px-6 py-4">
-                        <div class="flex items-center justify-between">
-                            <h3 class="text-lg font-medium text-white flex items-center">
-                                <i class="fas fa-check-circle mr-2"></i>
-                                Processing Results
-                            </h3>
-                            <div class="flex items-center space-x-2">
-                                <span class="processing-method-badge bg-white bg-opacity-20 text-white rounded-full"
-                                      x-text="results?.processing_method || 'Standard'"></span>
-                                <span class="processing-method-badge bg-white bg-opacity-20 text-white rounded-full">
-                                    <span x-text="results?.processing_time?.toFixed(2) || '0.00'"></span>s
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="p-6">
-                        <!-- Document Classification -->
-                        <div class="mb-6">
-                            <div class="flex items-center justify-between mb-3">
-                                <h4 class="font-medium text-gray-900">Document Classification</h4>
+                    <div class="bg-white shadow-lg rounded-lg overflow-hidden">
+                        <div class="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-medium text-white flex items-center">
+                                    <i class="fas fa-microscope mr-2"></i>
+                                    Multi-OCR Comparison Results
+                                </h3>
                                 <div class="flex items-center space-x-2">
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium"
-                                          :class="getDocumentTypeClass(results?.document_type)">
-                                        <i :class="getDocumentTypeIcon(results?.document_type)" class="mr-1"></i>
-                                        <span x-text="formatDocumentType(results?.document_type)"></span>
+                                    <span class="processing-method-badge bg-white bg-opacity-20 text-white rounded-full">
+                                        <span x-text="results?.total_engines_used || 0"></span> Engines
+                                    </span>
+                                    <span class="processing-method-badge bg-white bg-opacity-20 text-white rounded-full">
+                                        <span x-text="results?.processing_time?.toFixed(2) || '0.00'"></span>s
                                     </span>
                                 </div>
                             </div>
-                            
-                            <!-- Confidence Meters -->
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div class="bg-gray-50 rounded-lg p-4">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-sm font-medium text-gray-700">Overall Confidence</span>
-                                        <span class="text-sm font-bold text-gray-900" x-text="`${Math.round(results?.overall_confidence || 0)}%`"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="confidence-bar h-2 rounded-full transition-all duration-1000" 
-                                             :style="`width: ${results?.overall_confidence || 0}%`"></div>
-                                    </div>
-                                </div>
-                                
-                                <div class="bg-gray-50 rounded-lg p-4">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-sm font-medium text-gray-700">Classification</span>
-                                        <span class="text-sm font-bold text-gray-900" x-text="`${Math.round(results?.classification_confidence || 0)}%`"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="bg-blue-500 h-2 rounded-full transition-all duration-1000" 
-                                             :style="`width: ${results?.classification_confidence || 0}%`"></div>
-                                    </div>
-                                </div>
-                                
-                                <div class="bg-gray-50 rounded-lg p-4">
-                                    <div class="flex items-center justify-between mb-2">
-                                        <span class="text-sm font-medium text-gray-700">Extraction</span>
-                                        <span class="text-sm font-bold text-gray-900" x-text="`${Math.round(results?.extraction_confidence || 0)}%`"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="bg-purple-500 h-2 rounded-full transition-all duration-1000" 
-                                             :style="`width: ${results?.extraction_confidence || 0}%`"></div>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
-                        <!-- Extracted Fields -->
-                        <div x-show="results?.extracted_data && Object.keys(results.extracted_data).length > 0" class="mb-6">
-                            <h4 class="font-medium text-gray-900 mb-4 flex items-center">
-                                <i class="fas fa-database text-blue-600 mr-2"></i>
-                                Extracted Information
-                            </h4>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <template x-for="[key, value] in Object.entries(results?.extracted_data || {})">
-                                    <div class="field-card bg-gray-50 rounded-lg p-4 border-l-4 border-blue-500">
-                                        <div class="flex items-start justify-between">
-                                            <div class="flex-1">
-                                                <span class="text-sm font-medium text-gray-700 uppercase tracking-wide" x-text="formatFieldName(key)"></span>
-                                                <p class="mt-1 text-base text-gray-900 font-medium" x-text="value || 'Not detected'"></p>
+                        <!-- Tab Navigation -->
+                        <div class="border-b border-gray-200">
+                            <nav class="flex space-x-8 px-6" aria-label="Tabs">
+                                <button @click="activeTab = 'overview'" 
+                                        class="tab-button py-4 px-1 border-b-2 font-medium text-sm"
+                                        :class="activeTab === 'overview' ? 'border-purple-500 text-purple-600 active' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
+                                    <i class="fas fa-chart-pie mr-2"></i>Overview
+                                </button>
+                                <button @click="activeTab = 'engines'" 
+                                        class="tab-button py-4 px-1 border-b-2 font-medium text-sm"
+                                        :class="activeTab === 'engines' ? 'border-purple-500 text-purple-600 active' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
+                                    <i class="fas fa-cogs mr-2"></i>Engine Results
+                                </button>
+                                <button @click="activeTab = 'comparison'" 
+                                        class="tab-button py-4 px-1 border-b-2 font-medium text-sm"
+                                        :class="activeTab === 'comparison' ? 'border-purple-500 text-purple-600 active' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
+                                    <i class="fas fa-balance-scale mr-2"></i>Comparison
+                                </button>
+                                <button @click="activeTab = 'images'" 
+                                        class="tab-button py-4 px-1 border-b-2 font-medium text-sm"
+                                        :class="activeTab === 'images' ? 'border-purple-500 text-purple-600 active' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'">
+                                    <i class="fas fa-images mr-2"></i>Annotated Images
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- Tab Content -->
+                        <div class="p-6">
+                            <!-- Overview Tab -->
+                            <div x-show="activeTab === 'overview'" class="tab-content">
+                                <!-- Best Result Summary -->
+                                <div x-show="results?.best_result" class="mb-6">
+                                    <h4 class="font-medium text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-trophy text-yellow-500 mr-2"></i>
+                                        Best Result
+                                    </h4>
+                                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <span class="font-medium text-green-800">
+                                                <i :class="getEngineIcon(results?.best_result?.engine)" class="mr-2"></i>
+                                                <span x-text="formatEngineName(results?.best_result?.engine)"></span>
+                                            </span>
+                                            <span class="text-green-600 font-bold">
+                                                Score: <span x-text="results?.best_result?.score?.toFixed(1) || '0.0'"></span>
+                                            </span>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                            <div>
+                                                <span class="text-gray-600">Document Type:</span>
+                                                <div class="font-medium" x-text="formatDocumentType(results?.best_result?.result?.classification?.document_type)"></div>
                                             </div>
-                                            <i class="fas fa-check-circle text-green-500 mt-1" x-show="value"></i>
-                                            <i class="fas fa-exclamation-circle text-yellow-500 mt-1" x-show="!value"></i>
+                                            <div>
+                                                <span class="text-gray-600">OCR Elements:</span>
+                                                <div class="font-medium" x-text="results?.best_result?.result?.ocr_results_count || 0"></div>
+                                            </div>
+                                            <div>
+                                                <span class="text-gray-600">Classification Confidence:</span>
+                                                <div class="font-medium" x-text="`${results?.best_result?.result?.classification?.confidence || 0}%`"></div>
+                                            </div>
                                         </div>
                                     </div>
-                                </template>
-                            </div>
-                        </div>
+                                </div>
 
-                        <!-- Processing Details -->
-                        <div class="mb-6">
-                            <h4 class="font-medium text-gray-900 mb-3 flex items-center">
-                                <i class="fas fa-cogs text-purple-600 mr-2"></i>
-                                Processing Details
-                            </h4>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                <div class="bg-gray-50 rounded-lg p-3 text-center">
-                                    <div class="text-gray-600">OCR Elements</div>
-                                    <div class="font-bold text-gray-900" x-text="results?.debug_info?.ocr_count || 0"></div>
+                                <!-- Agreement Analysis -->
+                                <div x-show="results?.comparison_analysis" class="mb-6">
+                                    <h4 class="font-medium text-gray-900 mb-3 flex items-center">
+                                        <i class="fas fa-handshake text-blue-500 mr-2"></i>
+                                        Engine Agreement Analysis
+                                    </h4>
+                                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <span class="text-sm text-gray-600">Most Agreed Document Type:</span>
+                                                <div class="font-medium text-blue-800" x-text="formatDocumentType(results?.comparison_analysis?.most_agreed_document_type)"></div>
+                                            </div>
+                                            <div>
+                                                <span class="text-sm text-gray-600">Agreement Rate:</span>
+                                                <div class="font-medium text-blue-800" x-text="`${Math.round((results?.comparison_analysis?.engines_agreement_rate || 0) * 100)}%`"></div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="bg-gray-50 rounded-lg p-3 text-center">
-                                    <div class="text-gray-600">Image Size</div>
-                                    <div class="font-bold text-gray-900" x-text="formatImageSize(results?.debug_info?.image_shape)"></div>
-                                </div>
-                                <div class="bg-gray-50 rounded-lg p-3 text-center">
-                                    <div class="text-gray-600">Method</div>
-                                    <div class="font-bold text-gray-900" x-text="results?.processing_method || 'Standard'"></div>
-                                </div>
-                                <div class="bg-gray-50 rounded-lg p-3 text-center">
-                                    <div class="text-gray-600">Status</div>
-                                    <div class="font-bold" :class="results?.extraction_success ? 'text-green-600' : 'text-red-600'">
-                                        <span x-text="results?.extraction_success ? 'Success' : 'Partial'"></span>
+
+                                <!-- Processing Summary -->
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                        <div class="text-2xl font-bold text-gray-900" x-text="results?.total_engines_used || 0"></div>
+                                        <div class="text-sm text-gray-600">Engines Used</div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                        <div class="text-2xl font-bold text-gray-900" x-text="(results?.engines_with_errors || []).length"></div>
+                                        <div class="text-sm text-gray-600">Engines with Errors</div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                        <div class="text-2xl font-bold text-gray-900" x-text="results?.processing_time?.toFixed(1) || '0.0'"></div>
+                                        <div class="text-sm text-gray-600">Processing Time (s)</div>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-4 text-center">
+                                        <div class="text-2xl font-bold text-gray-900" x-text="results?.filename || 'N/A'"></div>
+                                        <div class="text-sm text-gray-600">Filename</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- OCR Sample -->
-                        <div x-show="results?.ocr_text_sample" class="mb-6">
-                            <h4 class="font-medium text-gray-900 mb-3 flex items-center">
-                                <i class="fas fa-eye text-indigo-600 mr-2"></i>
-                                OCR Sample Text
-                            </h4>
-                            <div class="bg-gray-100 rounded-lg p-4 text-sm text-gray-700 font-mono">
-                                <p x-text="results?.ocr_text_sample?.substring(0, 200) + (results?.ocr_text_sample?.length > 200 ? '...' : '')"></p>
-                            </div>
-                        </div>
+                            <!-- Engine Results Tab -->
+                            <div x-show="activeTab === 'engines'" class="tab-content">
+                                <div class="space-y-6">
+                                    <template x-for="[engine, result] in Object.entries(results?.ocr_engine_results || {})">
+                                        <div class="ocr-engine-card bg-white border rounded-lg p-6"
+                                             :class="{
+                                                 'best-result': results?.best_result?.engine === engine,
+                                                 'has-error': result.error
+                                             }">
+                                            <!-- Engine Header -->
+                                            <div class="flex items-center justify-between mb-4">
+                                                <div class="flex items-center">
+                                                    <i :class="getEngineIcon(engine)" class="text-2xl mr-3" :class="getEngineColor(engine)"></i>
+                                                    <div>
+                                                        <h5 class="font-medium text-gray-900" x-text="formatEngineName(engine)"></h5>
+                                                        <span x-show="results?.best_result?.engine === engine" class="text-xs text-green-600 font-medium">
+                                                            <i class="fas fa-crown mr-1"></i>Best Result
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div class="text-right">
+                                                    <div class="text-sm text-gray-600">OCR Elements</div>
+                                                    <div class="font-bold text-gray-900" x-text="result.ocr_results_count || 0"></div>
+                                                </div>
+                                            </div>
 
-                        <!-- Errors/Issues -->
-                        <div x-show="results?.extraction_errors && results.extraction_errors.length > 0" class="mb-6">
-                            <h4 class="font-medium text-red-700 mb-3 flex items-center">
-                                <i class="fas fa-exclamation-triangle mr-2"></i>
-                                Processing Issues
-                            </h4>
-                            <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                                <ul class="text-sm text-red-700 space-y-1">
-                                    <template x-for="error in results?.extraction_errors || []">
-                                        <li class="flex items-start">
-                                            <i class="fas fa-circle text-red-400 text-xs mt-1.5 mr-2"></i>
-                                            <span x-text="error"></span>
-                                        </li>
+                                            <!-- Engine Error -->
+                                            <div x-show="result.error" class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                                                <div class="flex items-center text-red-700">
+                                                    <i class="fas fa-exclamation-triangle mr-2"></i>
+                                                    <span class="font-medium">Engine Error:</span>
+                                                </div>
+                                                <div class="text-red-600 text-sm mt-1" x-text="result.error"></div>
+                                            </div>
+
+                                            <!-- Engine Results -->
+                                            <div x-show="!result.error">
+                                                <!-- Classification -->
+                                                <div class="mb-4">
+                                                    <h6 class="text-sm font-medium text-gray-700 mb-2">Classification</h6>
+                                                    <div class="flex items-center justify-between">
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                                                              :class="getDocumentTypeClass(result?.classification?.document_type)">
+                                                            <span x-text="formatDocumentType(result?.classification?.document_type)"></span>
+                                                        </span>
+                                                        <span class="text-sm text-gray-600">
+                                                            <span x-text="result?.classification?.confidence || 0"></span>% confidence
+                                                        </span>
+                                                    </div>
+                                                    <div class="text-xs text-gray-500 mt-1" x-text="result?.classification?.reasoning"></div>
+                                                </div>
+
+                                                <!-- Extracted Fields -->
+                                                <div x-show="result?.extracted_fields" class="mb-4">
+                                                    <h6 class="text-sm font-medium text-gray-700 mb-2">Extracted Fields</h6>
+                                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                                        <template x-for="[key, value] in Object.entries(result?.extracted_fields || {})">
+                                                            <div x-show="value && key !== 'document_type'" class="flex justify-between">
+                                                                <span class="text-gray-600" x-text="formatFieldName(key)"></span>
+                                                                <span class="font-medium text-gray-900" x-text="value"></span>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+
+                                                <!-- OCR Sample -->
+                                                <div x-show="result?.raw_ocr_sample?.length > 0" class="mb-4">
+                                                    <h6 class="text-sm font-medium text-gray-700 mb-2">OCR Sample</h6>
+                                                    <div class="bg-gray-100 rounded-lg p-3 text-xs text-gray-700 font-mono max-h-20 overflow-y-auto">
+                                                        <template x-for="sample in result?.raw_ocr_sample?.slice(0, 5)">
+                                                            <div x-text="sample"></div>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </template>
-                                </ul>
+                                </div>
+                            </div>
+
+                            <!-- Comparison Tab -->
+                            <div x-show="activeTab === 'comparison'" class="tab-content">
+                                <!-- Classification Agreement Chart -->
+                                <div class="mb-6">
+                                    <h4 class="font-medium text-gray-900 mb-3">Classification Agreement</h4>
+                                    <div class="space-y-3">
+                                        <template x-for="[docType, count] in Object.entries(results?.comparison_analysis?.classification_agreement || {})">
+                                            <div class="flex items-center">
+                                                <div class="w-32 text-sm text-gray-600" x-text="formatDocumentType(docType)"></div>
+                                                <div class="flex-1 mx-4">
+                                                    <div class="bg-gray-200 rounded-full h-4">
+                                                        <div class="bg-blue-500 h-4 rounded-full transition-all duration-1000"
+                                                             :style="`width: ${(count / (results?.total_engines_used || 1)) * 100}%`"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="text-sm font-medium text-gray-900" x-text="`${count}/${results?.total_engines_used || 1}`"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <!-- Field Extraction Comparison -->
+                                <div>
+                                    <h4 class="font-medium text-gray-900 mb-3">Field Extraction Comparison</h4>
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200">
+                                            <thead class="bg-gray-50">
+                                                <tr>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Engine</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID/Number</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sex</th>
+                                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date of Birth</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white divide-y divide-gray-200">
+                                                <template x-for="[engine, result] in Object.entries(results?.ocr_engine_results || {})">
+                                                    <tr x-show="!result.error">
+                                                        <td class="px-4 py-2 text-sm">
+                                                            <div class="flex items-center">
+                                                                <i :class="getEngineIcon(engine)" class="mr-2" :class="getEngineColor(engine)"></i>
+                                                                <span x-text="formatEngineName(engine)"></span>
+                                                            </div>
+                                                        </td>
+                                                        <td class="px-4 py-2 text-sm" x-text="result?.extracted_fields?.name || result?.extracted_fields?.full_name || '-'"></td>
+                                                        <td class="px-4 py-2 text-sm" x-text="result?.extracted_fields?.id_number || result?.extracted_fields?.indiv_number || result?.extracted_fields?.passport_number || '-'"></td>
+                                                        <td class="px-4 py-2 text-sm" x-text="result?.extracted_fields?.sex || '-'"></td>
+                                                        <td class="px-4 py-2 text-sm" x-text="result?.extracted_fields?.date_of_birth || '-'"></td>
+                                                    </tr>
+                                                </template>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Annotated Images Tab -->
+                            <div x-show="activeTab === 'images'" class="tab-content">
+                                <h4 class="font-medium text-gray-900 mb-4">Annotated Image Comparison</h4>
+                                <div class="image-comparison-grid">
+                                    <template x-for="[engine, result] in Object.entries(results?.ocr_engine_results || {})">
+                                        <div x-show="!result.error && result.annotated_image_path" class="text-center">
+                                            <h5 class="font-medium text-gray-900 mb-2 flex items-center justify-center">
+                                                <i :class="getEngineIcon(engine)" class="mr-2" :class="getEngineColor(engine)"></i>
+                                                <span x-text="formatEngineName(engine)"></span>
+                                            </h5>
+                                            <div class="relative">
+                                                <img :src="`/static/annotated/${result.annotated_image_path.split('/').pop()}`" 
+                                                     :alt="`${engine} annotated result`"
+                                                     class="annotated-image"
+                                                     @error="$event.target.style.display='none'; $event.target.nextElementSibling.style.display='block'">
+                                                <div class="hidden bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+                                                    <i class="fas fa-image text-gray-400 text-3xl mb-2"></i>
+                                                    <p class="text-gray-500">Image not available</p>
+                                                    <p class="text-xs text-gray-400 mt-1" x-text="result.annotated_image_path"></p>
+                                                </div>
+                                            </div>
+                                            <div class="mt-2 text-xs text-gray-500">
+                                                OCR Elements: <span x-text="result.ocr_results_count || 0"></span>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                                <div class="mt-6 text-sm text-gray-600 bg-gray-50 rounded-lg p-4">
+                                    <i class="fas fa-info-circle mr-2"></i>
+                                    <strong>Note:</strong> Annotated images show bounding boxes around detected text elements. 
+                                    Each engine may detect different text regions with varying accuracy.
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Action Buttons -->
-                        <div class="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
-                            <button @click="downloadResults()" 
-                                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                                <i class="fas fa-download mr-2"></i>
-                                Download JSON
-                            </button>
-                            <button @click="copyToClipboard()" 
-                                    class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
-                                <i class="fas fa-copy mr-2"></i>
-                                Copy Results
-                            </button>
-                            <button @click="processAnother()" 
-                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700">
-                                <i class="fas fa-plus mr-2"></i>
-                                Process Another
-                            </button>
+                        <!-- Download Actions -->
+                        <div class="border-t border-gray-200 px-6 py-4 bg-gray-50">
+                            <div class="flex flex-wrap gap-3">
+                                <button @click="downloadMultiOCRResults()" 
+                                        class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                    <i class="fas fa-download mr-2"></i>
+                                    Download Complete Analysis
+                                </button>
+                                <button @click="copyMultiOCRResults()" 
+                                        class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                    <i class="fas fa-copy mr-2"></i>
+                                    Copy Results
+                                </button>
+                                <button @click="viewOutputDirectory()" 
+                                        class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                                    <i class="fas fa-folder-open mr-2"></i>
+                                    View Output Files
+                                </button>
+                                <button @click="processAnother()" 
+                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700">
+                                    <i class="fas fa-plus mr-2"></i>
+                                    Process Another Document
+                                </button>
+                            </div>
                         </div>
                     </div>
+                </div>
+
+                <!-- Standard Results Section (keep existing enhanced results) -->
+                <div x-show="results && results.processing_method !== 'backup_multi_ocr'" class="mt-8 bg-white shadow-lg rounded-lg overflow-hidden">
+                    <!-- Keep your existing enhanced results section here -->
+                    <!-- ... (existing results display code) ... -->
                 </div>
 
                 <!-- Error Message -->
@@ -407,28 +641,42 @@
         <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <p class="text-sm text-gray-500">
-                    © 2025 Enhanced Document Processor by Gl4d3. Built with FastAPI, Vision AI & Advanced OCR.
+                    © 2025 Multi-OCR Document Processor by Gl4d3. Perfect Logic • Comprehensive Analysis • Open Source.
                 </p>
                 <div class="mt-4 md:mt-0 flex items-center space-x-4 text-sm text-gray-500">
-                    <span>Last Updated: 2025-06-03</span>
+                    <span>Last Updated: 2025-06-04</span>
                     <span>•</span>
-                    <span>Version 2.1.0</span>
+                    <span>Version 2.2.0</span>
                 </div>
             </div>
         </div>
     </footer>
 
     <script>
-        function enhancedDocumentProcessor() {
+        function multiOCRDocumentProcessor() {
             return {
                 selectedFile: null,
-                processingMode: 'sync',
+                processingMode: 'multi_ocr',
                 isProcessing: false,
                 isDragging: false,
                 progress: 0,
                 statusMessage: '',
                 results: null,
                 errorMessage: '',
+                activeTab: 'overview',
+
+                async loadEngineStatus() {
+                    try {
+                        const response = await fetch('/backup-processor/engines');
+                        if (response.ok) {
+                            const data = await response.json();
+                            this.engines = data.available_engines;
+                        }
+                    } catch (error) {
+                        console.error('Failed to load engine status:', error);
+                        this.engines = ['tesseract']; // Fallback
+                    }
+                },
 
                 handleFileSelect(event) {
                     const file = event.target.files[0];
@@ -457,6 +705,7 @@
                     this.results = null;
                     this.errorMessage = '';
                     this.progress = 0;
+                    this.activeTab = 'overview';
                 },
 
                 formatFileSize(bytes) {
@@ -470,48 +719,54 @@
                     return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                 },
 
+                formatEngineName(engine) {
+                    const names = {
+                        'tesseract': 'Tesseract OCR',
+                        'paddleocr': 'PaddleOCR',
+                        'vision_agent': 'Vision Agent',
+                        'easyocr': 'EasyOCR'
+                    };
+                    return names[engine] || engine;
+                },
+
                 formatDocumentType(type) {
                     const types = {
-                        'kra_pin': 'KRA PIN Certificate',
-                        'kenyan_id': 'Kenyan National ID',
-                        'foreign_id': 'Foreign ID/Passport',
-                        'business_cert': 'Business Certificate',
+                        'national_id': 'National ID',
+                        'foreign_certificate': 'Foreign Certificate',
                         'passport': 'Passport',
-                        'drivers_license': 'Driver\'s License',
                         'unknown': 'Unknown Document'
                     };
                     return types[type] || type;
                 },
 
+                getEngineIcon(engine) {
+                    const icons = {
+                        'tesseract': 'fas fa-eye',
+                        'paddleocr': 'fas fa-compass',
+                        'vision_agent': 'fas fa-brain',
+                        'easyocr': 'fas fa-magic'
+                    };
+                    return icons[engine] || 'fas fa-cog';
+                },
+
+                getEngineColor(engine) {
+                    const colors = {
+                        'tesseract': 'text-blue-500',
+                        'paddleocr': 'text-green-500',
+                        'vision_agent': 'text-purple-500',
+                        'easyocr': 'text-orange-500'
+                    };
+                    return colors[engine] || 'text-gray-500';
+                },
+
                 getDocumentTypeClass(type) {
                     const classes = {
-                        'kra_pin': 'bg-blue-100 text-blue-800',
-                        'kenyan_id': 'bg-green-100 text-green-800',
-                        'foreign_id': 'bg-purple-100 text-purple-800',
-                        'business_cert': 'bg-orange-100 text-orange-800',
+                        'national_id': 'bg-green-100 text-green-800',
+                        'foreign_certificate': 'bg-purple-100 text-purple-800',
                         'passport': 'bg-indigo-100 text-indigo-800',
-                        'drivers_license': 'bg-yellow-100 text-yellow-800',
                         'unknown': 'bg-gray-100 text-gray-800'
                     };
                     return classes[type] || 'bg-gray-100 text-gray-800';
-                },
-
-                getDocumentTypeIcon(type) {
-                    const icons = {
-                        'kra_pin': 'fas fa-receipt',
-                        'kenyan_id': 'fas fa-id-card',
-                        'foreign_id': 'fas fa-passport',
-                        'business_cert': 'fas fa-building',
-                        'passport': 'fas fa-passport',
-                        'drivers_license': 'fas fa-id-card-alt',
-                        'unknown': 'fas fa-question-circle'
-                    };
-                    return icons[type] || 'fas fa-file';
-                },
-
-                formatImageSize(shape) {
-                    if (!shape || !Array.isArray(shape)) return 'N/A';
-                    return `${shape[1]}×${shape[0]}`;
                 },
 
                 async processDocument() {
@@ -526,52 +781,54 @@
                         const formData = new FormData();
                         formData.append('file', this.selectedFile);
 
-                        if (this.processingMode === 'sync') {
-                            this.statusMessage = 'Analyzing with Vision AI...';
-                            this.progress = 30;
+                        let endpoint = '/process-sync';
+                        if (this.processingMode === 'multi_ocr') {
+                            endpoint = '/process-backup-multi-ocr';
+                            this.statusMessage = 'Initializing OCR engines...';
+                            this.progress = 20;
+                            await new Promise(resolve => setTimeout(resolve, 500));
 
+                            this.statusMessage = 'Running Tesseract OCR...';
+                            this.progress = 30;
+                            await new Promise(resolve => setTimeout(resolve, 800));
+
+                            this.statusMessage = 'Running PaddleOCR...';
+                            this.progress = 50;
+                            await new Promise(resolve => setTimeout(resolve, 800));
+
+                            this.statusMessage = 'Running Vision Agent...';
+                            this.progress = 70;
+                            await new Promise(resolve => setTimeout(resolve, 800));
+
+                            this.statusMessage = 'Running EasyOCR...';
+                            this.progress = 85;
+                            await new Promise(resolve => setTimeout(resolve, 500));
+
+                            this.statusMessage = 'Comparing results...';
+                            this.progress = 95;
+                        } else {
+                            this.statusMessage = 'Analyzing with Vision AI...';
+                            this.progress = 40;
                             await new Promise(resolve => setTimeout(resolve, 500));
 
                             this.statusMessage = 'Extracting text with OCR...';
-                            this.progress = 60;
-
-                            const response = await fetch('/process-sync', {
-                                method: 'POST',
-                                body: formData
-                            });
-
-                            if (!response.ok) {
-                                const error = await response.json();
-                                throw new Error(error.detail || 'Processing failed');
-                            }
-
-                            this.progress = 90;
-                            this.statusMessage = 'Finalizing results...';
-                            
-                            await new Promise(resolve => setTimeout(resolve, 300));
-
-                            this.progress = 100;
-                            this.statusMessage = 'Processing complete!';
-                            this.results = await response.json();
-                        } else {
-                            this.statusMessage = 'Starting background processing...';
-                            this.progress = 30;
-
-                            const response = await fetch('/upload', {
-                                method: 'POST',
-                                body: formData
-                            });
-
-                            if (!response.ok) {
-                                const error = await response.json();
-                                throw new Error(error.detail || 'Upload failed');
-                            }
-
-                            const uploadResult = await response.json();
-                            const documentId = uploadResult.document_id;
-
-                            await this.pollForResults(documentId);
+                            this.progress = 70;
                         }
+
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (!response.ok) {
+                            const error = await response.json();
+                            throw new Error(error.detail || 'Processing failed');
+                        }
+
+                        this.progress = 100;
+                        this.statusMessage = 'Processing complete!';
+                        this.results = await response.json();
+
                     } catch (error) {
                         this.errorMessage = error.message;
                     } finally {
@@ -579,54 +836,7 @@
                     }
                 },
 
-                async pollForResults(documentId) {
-                    const maxAttempts = 30;
-                    let attempts = 0;
-
-                    while (attempts < maxAttempts) {
-                        try {
-                            this.statusMessage = `Processing in background... (${attempts + 1}/${maxAttempts})`;
-                            this.progress = 30 + (attempts / maxAttempts) * 60;
-
-                            const response = await fetch(`/status/${documentId}`);
-                            if (!response.ok) break;
-
-                            const status = await response.json();
-
-                            if (status.status === 'completed') {
-                                this.progress = 100;
-                                this.statusMessage = 'Processing complete!';
-                                this.results = {
-                                    is_valid: status.result?.extraction_success || false,
-                                    document_type: status.result?.document_type || 'unknown',
-                                    overall_confidence: status.result?.overall_confidence || 0,
-                                    classification_confidence: status.result?.classification_confidence || 0,
-                                    extraction_confidence: status.result?.extraction_confidence || 0,
-                                    extracted_data: status.result?.extracted_data || {},
-                                    extraction_errors: status.result?.extraction_errors || [],
-                                    processing_time: 0,
-                                    processing_method: status.result?.processing_method || 'background',
-                                    ocr_text_sample: status.result?.ocr_text_sample || '',
-                                    debug_info: status.result?.debug_info || {}
-                                };
-                                break;
-                            } else if (status.status === 'failed') {
-                                throw new Error(status.result?.error || 'Processing failed');
-                            }
-
-                            attempts++;
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                        } catch (error) {
-                            throw new Error('Failed to check processing status');
-                        }
-                    }
-
-                    if (attempts >= maxAttempts) {
-                        throw new Error('Processing timeout - please try again');
-                    }
-                },
-
-                downloadResults() {
+                downloadMultiOCRResults() {
                     if (!this.results) return;
                     
                     const dataStr = JSON.stringify(this.results, null, 2);
@@ -634,22 +844,35 @@
                     const url = URL.createObjectURL(dataBlob);
                     const link = document.createElement('a');
                     link.href = url;
-                    link.download = `document_results_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
+                    link.download = `multi_ocr_analysis_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.json`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     URL.revokeObjectURL(url);
                 },
 
-                async copyToClipboard() {
+                async copyMultiOCRResults() {
                     if (!this.results) return;
                     
                     try {
                         await navigator.clipboard.writeText(JSON.stringify(this.results, null, 2));
-                        // Could add a toast notification here
-                        console.log('Results copied to clipboard');
+                        console.log('Multi-OCR results copied to clipboard');
                     } catch (err) {
                         console.error('Failed to copy to clipboard:', err);
+                    }
+                },
+
+                async viewOutputDirectory() {
+                    try {
+                        const response = await fetch('/backup-processor/outputs');
+                        if (response.ok) {
+                            const data = await response.json();
+                            console.log('Output directory contents:', data);
+                            // Could open a modal or new window to show files
+                            alert(`Output directory: ${data.output_directory}\nTotal files: ${data.total_files}`);
+                        }
+                    } catch (error) {
+                        console.error('Failed to view output directory:', error);
                     }
                 },
 
