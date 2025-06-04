@@ -63,7 +63,7 @@ os.makedirs("templates", exist_ok=True)
 # Mount static files and templates
 try:
     app.mount("/static", StaticFiles(directory="static"), name="static")
-    app.mount("/static/annotated", StaticFiles(directory="ocr_comparison_outputs"), name="annotated")
+    app.mount("/static/annotated", StaticFiles(directory="annotated"), name="annotated")
     templates = Jinja2Templates(directory="templates")
 except Exception as e:
     logger.warning(f"Template setup failed: {e}")

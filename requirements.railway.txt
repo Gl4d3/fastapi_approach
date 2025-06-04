@@ -21,3 +21,9 @@ PyYAML==6.0.1
 
 # Redis for Railway
 redis==5.0.1
+
+# Updates for Railway
+paddleocr
+paddlepaddle
+vision-agent
+pillow-heif
