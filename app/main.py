@@ -13,6 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 import os
 import json
+from pathlib import Path
 
 from .core.config import get_settings
 from .core.document_processor import DocumentProcessor
@@ -60,14 +61,49 @@ app.add_middleware(
 os.makedirs("static", exist_ok=True)
 os.makedirs("templates", exist_ok=True)
 
-# Mount static files and templates
+# Create directories if they don't exist - ADD THIS BEFORE THE MOUNTING CODE
+def ensure_directories():
+    """Ensure all required directories exist"""
+    directories = [
+        "static",
+        "templates", 
+        "uploads",
+        "logs",
+        "ocr_comparison_outputs",
+        "ocr_comparison_outputs/originals",
+        "ocr_comparison_outputs/tesseract_annotated",
+        "ocr_comparison_outputs/paddle_annotated",
+        "ocr_comparison_outputs/vision_agent_annotated",
+        "ocr_comparison_outputs/easyocr_annotated"
+    ]
+    
+    for directory in directories:
+        Path(directory).mkdir(parents=True, exist_ok=True)
+        logger.info(f"✅ Ensured directory exists: {directory}")
+
+# Call this before mounting static files
+ensure_directories()
+
+# Configure static files and templates - UPDATED VERSION
 try:
     app.mount("/static", StaticFiles(directory="static"), name="static")
-    app.mount("/static/annotated", StaticFiles(directory="ocr_comparison_outputs"), name="annotated")
-    templates = Jinja2Templates(directory="templates")
+    
+    # Mount OCR outputs directory for annotated images
+    if os.path.exists("ocr_comparison_outputs"):
+        app.mount("/static/annotated", StaticFiles(directory="ocr_comparison_outputs"), name="annotated")
+        logger.info("✅ Mounted OCR outputs directory for annotated images")
+    else:
+        logger.warning("⚠️ OCR outputs directory not found, annotated images won't be available")
+        
 except Exception as e:
-    logger.warning(f"Template setup failed: {e}")
-    logger.warning(f"Could not mount annotated images directory: {e}")
+    logger.warning(f"⚠️ Could not mount static directories: {e}")
+
+# Configure Jinja2 templates
+try:
+    templates = Jinja2Templates(directory="templates")
+    logger.info("✅ Templates configured successfully")
+except Exception as e:
+    logger.warning(f"⚠️ Template setup failed: {e}")
     templates = None
 
 # Enhanced Web UI Routes
