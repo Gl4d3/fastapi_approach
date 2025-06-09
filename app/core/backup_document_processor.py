@@ -5,9 +5,8 @@ import logging
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 from enum import Enum
-import re
 from dataclasses import dataclass
-import uuid
+# import uuid
 import traceback
 import io
 import os
@@ -298,7 +297,12 @@ class BackupDocumentProcessor:
                 "error": str(e),
                 "ocr_results_count": 0
             }
-    
+        
+    async def cleanup(self):
+        """Cleanup resources"""
+        if self.redis_client:
+            await self.redis_client.close()
+            
     def _process_with_paddle(self, image: np.ndarray, base_filename: str) -> Dict[str, Any]:
         """Process with PaddleOCR and save annotated image"""
         try:
@@ -511,7 +515,8 @@ class BackupDocumentProcessor:
         text_joined = ' '.join([r.text.lower() for r in ocr_results])
         
         # Perfect classification logic as specified
-        if 'foreigner certificate' in text_joined:
+        if any(foreign in text_joined for foreign in ['foreigner certificate', 'foreign certificate', 'foreign', 'foreigner']):
+            # Check for 'foreigner certificate' first
             return DocumentClassification(
                 document_type=DocumentType.FOREIGN_CERTIFICATE,
                 confidence=95.0,

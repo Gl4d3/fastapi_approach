@@ -4,7 +4,7 @@ import os
 
 class Settings(BaseSettings):
     # API Settings
-    API_V1_STR: str = "/api/v1"
+    API_V1_STR: str = "/api/v2"
     PROJECT_NAME: str = "Kenyan Document Processor"
     VERSION: str = "2.0.0"
     DESCRIPTION: str = "AI-powered document validation and data extraction"

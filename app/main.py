@@ -33,12 +33,19 @@ backup_processor = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global processor
+    global processor, backup_processor
     processor = DocumentProcessor()
     await processor.initialize()
     logger.info("Enhanced Document processor initialized")
+
+    backup_processor = BackupProcessorManager()
+    await backup_processor.initialize()
+    logger.info("Backup document processor initialized")
+
     yield
+
     await processor.cleanup()
+    await backup_processor.cleanup()
 
 app = FastAPI(
     title="Enhanced Kenyan Document Processing API",
